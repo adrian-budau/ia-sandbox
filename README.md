@@ -7,7 +7,7 @@ Currently a work in progress.
 
 - [x] Namespacess (mount, pid, ipc, uts, user)
 - [x] Pivot root 
-    - [ ] Proper unmounting of all previous mounts
+    - [x] Proper unmounting of all previous mounts
 - [ ] Redirect of stdin/stdout/stderr
 - [ ] Memory/Disk/Cpu limits
     - [ ] Setrlimit

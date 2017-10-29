@@ -164,8 +164,17 @@ pub fn pivot_root(new_root: &CStr) -> ChildResult<()> {
     // does change the root, though it's not guaranteed in the future)
     let root = CString::new(".").unwrap();
     if unsafe { libc::chroot(root.as_ptr()) } == -1 {
-        Err(ChildError::ChrootError(
+        return Err(ChildError::ChrootError(
             errno::Errno::last_error().error_string(),
+        ));
+    }
+
+    // And unmount .old_root
+    let old_root = CString::new("/.old_root").unwrap();
+    if unsafe { libc::umount2(old_root.as_ptr(), libc::MNT_DETACH) } == -1 {
+        Err(ChildError::MountError(
+            ".old_root".into(),
+            format!("Unmounting error: {}", errno::Errno::last_error().error_string()),
         ))
     } else {
         Ok(())
@@ -356,10 +365,6 @@ pub struct CloneHandle<T> {
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn pid(&self) -> libc::pid_t {
-        self.pid
-    }
-
     pub fn wait(mut self) -> Result<Option<T>> {
         let mut data = Vec::new();
         let _ = self.read_error_pipe

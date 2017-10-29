@@ -1,11 +1,11 @@
 #![feature(fnbox)]
-extern crate eval;
+extern crate ia_sandbox;
 
 #[macro_use]
 extern crate clap;
 
-use eval::config::Config;
-use eval::{run_jail, Result};
+use ia_sandbox::config::Config;
+use ia_sandbox::{run_jail, Result};
 
 mod app;
 mod args;
