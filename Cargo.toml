@@ -1,0 +1,12 @@
+[package]
+name = "ia-sandbox"
+version = "0.1.0"
+authors = ["Adrian Budau <budau.adi@gmail.com>"]
+
+[dependencies]
+libc = "0.2"
+error-chain = "0.11"
+clap = "2.26"
+serde = "1.0"
+serde_derive = "1.0"
+bincode = "0.9"
