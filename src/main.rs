@@ -1,16 +1,16 @@
 #![feature(fnbox)]
-extern crate ia_sandbox;
-
 #[macro_use]
 extern crate clap;
+extern crate ia_sandbox;
 
-use ia_sandbox::config::Config;
+use std::process;
+
 use ia_sandbox::{run_jail, Result};
+use ia_sandbox::config::Config;
 
 mod app;
 mod args;
 
-use std::process;
 
 macro_rules! eprintln {
     ($($tt:tt)*) => {{
@@ -23,7 +23,7 @@ fn main() {
     match args::parse().and_then(run) {
         Ok(()) => process::exit(0),
         Err(err) => {
-            eprintln!("{:?}", err);
+            eprintln!("{}", err);
             process::exit(1);
         }
     }

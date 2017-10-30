@@ -1,29 +1,27 @@
 use std::boxed::FnBox;
-use std::fs::{self, File, OpenOptions};
-use std::os::unix::io::FromRawFd;
-use std::marker::PhantomData;
-use std::io::{Read, Write};
-use std::ffi::{CStr, CString};
-use std::result::Result as StdResult;
 use std::error::Error;
-use std::fmt;
+use std::ffi::{CStr, CString};
+use std::fmt::Debug;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
+use std::iter;
+use std::marker::PhantomData;
+use std::os::unix::io::FromRawFd;
 use std::path::Path;
 use std::ptr;
-use std::iter;
 
+use bincode;
 use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
            CLONE_VFORK, SIGCHLD};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use bincode;
 
 use config::ShareNet;
-use errors::{Result, ResultExt};
+use errors::{ChildError, ChildResult, Result, ResultExt};
 
 const DEFAULT_STACK_SIZE: usize = 256 * 1024;
 const CLONE_NEWNET: libc::c_int = 0x40000000;
 
-use std::fmt::Debug;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct UserId(libc::uid_t);
@@ -35,7 +33,7 @@ pub fn get_user_group_id() -> (UserId, GroupId) {
 }
 
 pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> ChildResult<()> {
-    let uid_error = |_| ChildError::WriteUidError(errno::Errno::last_error().error_string());
+    let uid_error = |_| ChildError::WriteUidError(last_error_string());
     let mut uid_map = OpenOptions::new()
         .write(true)
         .open("/proc/self/uid_map")
@@ -52,17 +50,17 @@ pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> ChildResult<()> {
         .map_err(|_| {
             ChildError::WriteGidError(format!(
                 "Could not open setgroups file: {}",
-                errno::Errno::last_error().error_string()
+                last_error_string()
             ))
         })?;
     setgroups.write_all(b"deny").map_err(|_| {
         ChildError::WriteGidError(format!(
             "Could not write \"deny\" to setgroups file: {}",
-            errno::Errno::last_error().error_string()
+            last_error_string()
         ))
     })?;
 
-    let gid_error = |_| ChildError::WriteGidError(errno::Errno::last_error().error_string());
+    let gid_error = |_| ChildError::WriteGidError(last_error_string());
     let mut gid_map = OpenOptions::new()
         .write(true)
         .open("/proc/self/gid_map")
@@ -102,6 +100,7 @@ where
     let f = Box::new(f);
 
     let pid = match unsafe {
+        #[allow(trivial_casts)]
         libc::clone(
             cb,
             child_stack.as_mut_ptr().offset(child_stack.len() as isize) as *mut libc::c_void,
@@ -109,9 +108,7 @@ where
             &*f as *const _ as *mut libc::c_void,
         )
     } {
-        -1 => {
-            return Err(format!("Clone Error: {}", errno::Errno::last_error().error_string()).into())
-        }
+        -1 => return Err(format!("Clone Error: {}", last_error_string()).into()),
         x => x,
     };
 
@@ -146,17 +143,15 @@ pub fn pivot_root(new_root: &CStr) -> ChildResult<()> {
     };
 
     if res == -1 {
-        return Err(ChildError::MountError(
-            "new root".into(),
-            errno::Errno::last_error().error_string(),
-        ));
+        return Err(ChildError::MountError {
+            path: new_root.to_string_lossy().into_owned(),
+            error: last_error_string(),
+        });
     }
 
     // Change directory first
     if unsafe { libc::chdir(new_root.as_ptr()) } == -1 {
-        return Err(ChildError::ChdirError(
-            errno::Errno::last_error().error_string(),
-        ));
+        return Err(ChildError::ChdirError(last_error_string()));
     }
 
     sys_pivot_root(new_root, &old_root)?;
@@ -164,18 +159,16 @@ pub fn pivot_root(new_root: &CStr) -> ChildResult<()> {
     // does change the root, though it's not guaranteed in the future)
     let root = CString::new(".").unwrap();
     if unsafe { libc::chroot(root.as_ptr()) } == -1 {
-        return Err(ChildError::ChrootError(
-            errno::Errno::last_error().error_string(),
-        ));
+        return Err(ChildError::ChrootError(last_error_string()));
     }
 
     // And unmount .old_root
-    let old_root = CString::new("/.old_root").unwrap();
+    let old_root = CString::new(format!("/{}", OLD_ROOT_NAME)).unwrap();
     if unsafe { libc::umount2(old_root.as_ptr(), libc::MNT_DETACH) } == -1 {
-        Err(ChildError::MountError(
-            ".old_root".into(),
-            format!("Unmounting error: {}", errno::Errno::last_error().error_string()),
-        ))
+        Err(ChildError::MountError {
+            path: old_root.to_string_lossy().into_owned(),
+            error: format!("Unmounting error: {}", last_error_string()),
+        })
     } else {
         Ok(())
     }
@@ -202,10 +195,10 @@ pub fn mount_proc() -> ChildResult<()> {
     };
 
     if res == -1 {
-        Err(ChildError::MountError(
-            "proc".into(),
-            errno::Errno::last_error().error_string(),
-        ))
+        Err(ChildError::MountError {
+            path: "/proc".into(),
+            error: last_error_string(),
+        })
     } else {
         Ok(())
     }
@@ -224,73 +217,9 @@ where
     let res = unsafe { libc::execv(path.as_ptr(), arguments.as_slice().as_ptr()) };
 
     if res == -1 {
-        Err(ChildError::ExecError(
-            errno::Errno::last_error().error_string(),
-        ))
+        Err(ChildError::ExecError(last_error_string()))
     } else {
         Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ChildError {
-    ChdirError(String),
-    ChrootError(String),
-    CreateDirError(String),
-    ExecError(String),
-    MountError(String, String),
-    PivotRootError(String),
-    WriteUidError(String),
-    WriteGidError(String),
-    Custom(String),
-}
-
-pub type ChildResult<T> = StdResult<T, ChildError>;
-
-impl fmt::Display for ChildError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &ChildError::ChdirError(ref error) => write!(f, "Error during chdir: {}", error),
-            &ChildError::ChrootError(ref error) => write!(f, "Error during chroot: {}", error),
-            &ChildError::CreateDirError(ref error) => {
-                write!(f, "Error during creation of directory: {}", error)
-            }
-            &ChildError::ExecError(ref error) => write!(f, "Error during execv: {}", error),
-            &ChildError::MountError(ref folder, ref error) => {
-                write!(f, "Error during mounting {}: {}", folder, error)
-            }
-            &ChildError::PivotRootError(ref error) => {
-                write!(f, "Error during pivot root: {}", error)
-            }
-            &ChildError::WriteUidError(ref error) => {
-                write!(f, "Error during writing to uid_map file: {}", error)
-            }
-            &ChildError::WriteGidError(ref error) => {
-                write!(f, "Error during writing to gid_map file: {}", error)
-            }
-
-            &ChildError::Custom(ref message) => write!(f, "Unexpected error: {}", message),
-        }
-    }
-}
-
-impl Error for ChildError {
-    fn description(&self) -> &str {
-        match self {
-            &ChildError::ChdirError(_) => "Error during chdir",
-            &ChildError::ChrootError(_) => "Error during chroot",
-            &ChildError::CreateDirError(_) => "Error during creation of directory",
-            &ChildError::ExecError(_) => "Error during execv",
-            &ChildError::MountError(_, _) => "Error during mounting",
-            &ChildError::PivotRootError(_) => "Error during pivot root",
-            &ChildError::WriteUidError(_) => "Error during writing to uid_map file",
-            &ChildError::WriteGidError(_) => "Error during writing to gid_map file",
-            &ChildError::Custom(ref message) => message,
-        }
-    }
-
-    fn cause(&self) -> Option<&Error> {
-        None
     }
 }
 
@@ -316,9 +245,8 @@ fn sys_pivot_root(new_root: &CStr, old_root: &CStr) -> ChildResult<()> {
 }
 
 mod errno {
-    use std::ffi::CStr;
-
     use libc;
+    use std::ffi::CStr;
 
     #[derive(Debug)]
     pub struct Errno(libc::c_int);
@@ -346,6 +274,9 @@ mod errno {
     }
 }
 
+fn last_error_string() -> String {
+    errno::Errno::last_error().error_string()
+}
 
 fn make_pipe() -> Result<(File, File)> {
     unsafe {
@@ -378,7 +309,7 @@ impl<T: DeserializeOwned> CloneHandle<T> {
 
         loop {
             let mut status: libc::c_int = 0;
-            match unsafe { libc::waitpid(self.pid, &mut status as *mut _, 0) } {
+            match unsafe { libc::waitpid(self.pid, &mut status, 0) } {
                 -1 => return Err(format!("Error with waitpid").into()),
                 _ => {
                     if unsafe { libc::WIFEXITED(status) } {

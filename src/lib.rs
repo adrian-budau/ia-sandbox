@@ -1,5 +1,20 @@
+#![recursion_limit = "1024"]
 #![feature(fnbox)]
 #![feature(conservative_impl_trait)]
+
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+#![deny(fat_ptr_transmutes,
+        missing_copy_implementations,
+        missing_debug_implementations,
+        trivial_casts,
+        trivial_numeric_casts,
+        unused_extern_crates,
+        unused_import_braces,
+        unused_qualifications,
+        unused_results,
+        variant_size_differences,
+        warnings)]
 
 extern crate bincode;
 #[macro_use]
@@ -9,15 +24,13 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-pub mod errors {
-    error_chain!{}
-}
-
+#[macro_use]
+mod meta;
+pub mod errors;
 pub mod config;
 mod ffi;
 
 use config::Config;
-
 pub use errors::*;
 
 
@@ -46,7 +59,7 @@ pub fn run_jail(config: Config) -> Result<()> {
     )?;
     handle
         .wait()
-        .and_then(|child_error: Option<ffi::ChildResult<()>>| {
-            child_error.unwrap_or(Ok(())).chain_err(|| "Child error")
+        .and_then(|child_error: Option<ChildResult<()>>| {
+            child_error.unwrap_or(Ok(())).map_err(|e| e.into())
         })
 }
