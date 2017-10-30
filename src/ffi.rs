@@ -120,7 +120,10 @@ where
 }
 
 const OLD_ROOT_NAME: &'static str = ".old_root";
-pub fn pivot_root(new_root: &CStr) -> ChildResult<()> {
+pub fn pivot_root<F>(new_root: &CStr, before_umount: F) -> ChildResult<()>
+where
+    F: FnOnce() -> ChildResult<()>,
+{
     let old_root = format!("{}/{}", new_root.to_string_lossy(), OLD_ROOT_NAME);
 
     // create an .old_root folder in case it doesn't exist
@@ -155,12 +158,15 @@ pub fn pivot_root(new_root: &CStr) -> ChildResult<()> {
     }
 
     sys_pivot_root(new_root, &old_root)?;
+
     // Change root (not needed in practice because the implementation of pivot_root
     // does change the root, though it's not guaranteed in the future)
     let root = CString::new(".").unwrap();
     if unsafe { libc::chroot(root.as_ptr()) } == -1 {
         return Err(ChildError::ChrootError(last_error_string()));
     }
+
+    before_umount()?;
 
     // And unmount .old_root
     let old_root = CString::new(format!("/{}", OLD_ROOT_NAME)).unwrap();
@@ -204,6 +210,8 @@ pub fn mount_proc() -> ChildResult<()> {
     }
 }
 
+const EXEC_RETRIES: usize = 3;
+const RETRY_DELAY: libc::c_uint = 100000;
 pub fn exec_command<'a, 'b: 'a, T>(path: &'b CStr, arguments: T) -> ChildResult<()>
 where
     T: IntoIterator<Item = &'a CStr>,
@@ -214,13 +222,23 @@ where
         .chain(iter::once(ptr::null())) // add an ending NULL
         .collect();
 
-    let res = unsafe { libc::execv(path.as_ptr(), arguments.as_slice().as_ptr()) };
+    for retry in 0..EXEC_RETRIES {
+        let res = unsafe { libc::execv(path.as_ptr(), arguments.as_slice().as_ptr()) };
 
-    if res == -1 {
-        Err(ChildError::ExecError(last_error_string()))
-    } else {
-        Ok(())
+        if res == -1 {
+            let error = errno::Errno::last_error();
+            if error.error_code() != libc::ETXTBSY || retry == EXEC_RETRIES - 1 {
+                return Err(ChildError::ExecError(error.error_string()));
+            }
+            let res = unsafe { libc::usleep(RETRY_DELAY) };
+            if res == -1 {
+                return Err(ChildError::UsleepError(last_error_string()))
+            }
+        } else {
+            return Ok(())
+        }
     }
+    unreachable!()
 }
 
 fn sys_pivot_root(new_root: &CStr, old_root: &CStr) -> ChildResult<()> {

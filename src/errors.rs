@@ -12,6 +12,7 @@ impl_child_error! {
             error: String,
         },
         PivotRootError(String),
+        UsleepError(String),
         WriteUidError(String),
         WriteGidError(String),
         Custom(String),

@@ -128,9 +128,9 @@ macro_rules! impl_child_error {
                 &$name::$variant {
                     $(ref $arg,)*
                 } => {
-                    write!($f, concat!(stringify!($variant), " with "))?;
+                    write!($f, concat!(stringify!($variant), " with"))?;
                     $(
-                        write!($f, concat!(stringify!($arg), ": {}"), $arg)?;
+                        write!($f, concat!(" ", stringify!($arg), ": {}"), $arg)?;
                     )*
                     write!($f, "")
                 },

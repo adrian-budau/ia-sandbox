@@ -1,20 +1,11 @@
 #![recursion_limit = "1024"]
 #![feature(fnbox)]
 #![feature(conservative_impl_trait)]
-
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
-#![deny(fat_ptr_transmutes,
-        missing_copy_implementations,
-        missing_debug_implementations,
-        trivial_casts,
-        trivial_numeric_casts,
-        unused_extern_crates,
-        unused_import_braces,
-        unused_qualifications,
-        unused_results,
-        variant_size_differences,
-        warnings)]
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
+#![deny(missing_copy_implementations, missing_debug_implementations,
+        trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
+        unused_qualifications, unused_results, variant_size_differences, warnings)]
 
 extern crate bincode;
 #[macro_use]
@@ -38,13 +29,16 @@ pub fn run_jail(config: Config) -> Result<()> {
     let user_group_id = ffi::get_user_group_id();
     let handle = ffi::clone(
         || {
-            for new_root in config.new_root() {
-                ffi::pivot_root(new_root)?;
+            if let Some(new_root) = config.new_root() {
+                ffi::pivot_root(new_root, || {
+                    // Mount proc (since we are in a new pid namespace)
+                    // Must be done after pivot_root so we mount this in the right location
+                    // but also before we unmount the old root because ... I don't know
+                    ffi::mount_proc()
+                })?;
+            } else {
+                ffi::mount_proc()?;
             }
-
-            // Mount proc (since we are in a new pid namespace)
-            // Must be done after pivot_root so we mount this in the right location
-            ffi::mount_proc()?;
 
             // Make sure we are root (we don't really need to,
             // but this way the child process can do anything it likes
