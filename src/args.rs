@@ -38,6 +38,9 @@ impl<'a> ArgMatches<'a> {
             self.args()?,
             self.new_root(),
             self.share_net(),
+            self.redirect_stdin(),
+            self.redirect_stdout(),
+            self.redirect_stderr(),
         ))
     }
 
@@ -64,5 +67,17 @@ impl<'a> ArgMatches<'a> {
             true => ShareNet::Share,
             false => ShareNet::Unshare,
         }
+    }
+
+    fn redirect_stdin(&self) -> Option<CString> {
+        self.value_of_os("stdin").and_then(|x| to_cstring(x).ok())
+    }
+
+    fn redirect_stdout(&self) -> Option<CString> {
+        self.value_of_os("stdout").and_then(|x| to_cstring(x).ok())
+    }
+
+    fn redirect_stderr(&self) -> Option<CString> {
+        self.value_of_os("stderr").and_then(|x| to_cstring(x).ok())
     }
 }

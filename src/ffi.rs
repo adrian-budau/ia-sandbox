@@ -9,6 +9,7 @@ use std::marker::PhantomData;
 use std::os::unix::io::FromRawFd;
 use std::path::Path;
 use std::ptr;
+use std::result::Result as StdResult;
 
 use bincode;
 use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
@@ -18,6 +19,7 @@ use serde::de::DeserializeOwned;
 
 use config::ShareNet;
 use errors::{ChildError, ChildResult, Result, ResultExt};
+use run_info::{RunInfo, RunInfoResult};
 
 const DEFAULT_STACK_SIZE: usize = 256 * 1024;
 const CLONE_NEWNET: libc::c_int = 0x40000000;
@@ -232,13 +234,53 @@ where
             }
             let res = unsafe { libc::usleep(RETRY_DELAY) };
             if res == -1 {
-                return Err(ChildError::UsleepError(last_error_string()))
+                return Err(ChildError::UsleepError(last_error_string()));
             }
         } else {
-            return Ok(())
+            return Ok(());
         }
     }
     unreachable!()
+}
+
+pub struct Fd(libc::c_int, &'static str, libc::c_int, libc::c_int);
+
+pub const STDIN: Fd = Fd(0, "stdin", libc::O_RDONLY, 0);
+pub const STDOUT: Fd = Fd(
+    1,
+    "stdout",
+    libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
+    0o666,
+);
+pub const STDERR: Fd = Fd(
+    2,
+    "stderr",
+    libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
+    0o666,
+);
+
+pub fn redirect_fd(fd: Fd, path: &CStr) -> ChildResult<()> {
+    if unsafe { libc::close(fd.0) } == -1 {
+        return Err(ChildError::CloseFdError {
+            fd: fd.0,
+            name: fd.1.into(),
+            error: last_error_string(),
+        });
+    }
+
+    match unsafe { libc::open(path.as_ptr(), fd.2, fd.3) } {
+        -1 => Err(ChildError::OpenFdError {
+            fd: fd.0,
+            name: fd.1.into(),
+            error: last_error_string(),
+        }),
+        x if x != fd.0 => Err(ChildError::OpenFdError {
+            fd: fd.0,
+            name: fd.1.into(),
+            error: format!("Wrong file descritor opened {}", x),
+        }),
+        _ => Ok(()),
+    }
 }
 
 fn sys_pivot_root(new_root: &CStr, old_root: &CStr) -> ChildResult<()> {
@@ -314,14 +356,14 @@ pub struct CloneHandle<T> {
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn wait(mut self) -> Result<Option<T>> {
+    pub fn wait(mut self) -> Result<StdResult<RunInfo, T>> {
         let mut data = Vec::new();
         let _ = self.read_error_pipe
             .read_to_end(&mut data)
             .chain_err(|| "Error reading from error pipe")?;
         if data.len() > 0 {
             return bincode::deserialize(&data)
-                .map(|x| Some(x))
+                .map(|x| Err(x))
                 .chain_err(|| "Bincode decode problem");
         }
 
@@ -333,15 +375,17 @@ impl<T: DeserializeOwned> CloneHandle<T> {
                     if unsafe { libc::WIFEXITED(status) } {
                         let exit_code = unsafe { libc::WEXITSTATUS(status) };
                         if exit_code == 0 {
-                            return Ok(None);
+                            return Ok(Ok(RunInfo::new(RunInfoResult::Success)));
                         } else {
-                            return Err(format!("Non-zero exit status: {}", exit_code).into());
+                            return Ok(Ok(
+                                RunInfo::new(RunInfoResult::NonZeroExitStatus(exit_code)),
+                            ));
                         }
                     }
 
                     if unsafe { libc::WIFSIGNALED(status) } {
                         let signal = unsafe { libc::WTERMSIG(status) };
-                        return Err(format!("Killed by signal: {:?}", signal).into());
+                        return Ok(Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal))));
                     }
 
                     if unsafe { libc::WIFSTOPPED(status) || libc::WIFCONTINUED(status) } {

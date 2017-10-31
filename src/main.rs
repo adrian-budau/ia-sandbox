@@ -5,9 +5,6 @@ extern crate ia_sandbox;
 
 use std::process;
 
-use ia_sandbox::{run_jail, Result};
-use ia_sandbox::config::Config;
-
 mod app;
 mod args;
 
@@ -20,15 +17,14 @@ macro_rules! eprintln {
 }
 
 fn main() {
-    match args::parse().and_then(run) {
-        Ok(()) => process::exit(0),
+    match args::parse().and_then(ia_sandbox::run_jail) {
+        Ok(run_info) => {
+            println!("{}", run_info);
+            process::exit(0);
+        }
         Err(err) => {
             eprintln!("{}", err);
             process::exit(1);
         }
     }
-}
-
-fn run(args: Config) -> Result<()> {
-    run_jail(args)
 }

@@ -53,8 +53,29 @@ pub fn app() -> App<'static, 'static> {
                 .help("Whether to share the net namespace or not")
                 .long_help(
                     "Whether to share the net namespae or not. Not sharing\n\
-                     is more secure but it is also slow on multiple \n\
+                     is more secure but it is also slow on multiple\n\
                      successive runs (Linux Kernel Bug).",
                 ),
+        )
+        .arg(
+            Arg::with_name("stdin")
+                .long("stdin")
+                .takes_value(true)
+                .help("From where to redirect stdin")
+                .long_help("From where to redirect stdin. The path must be outside the jail"),
+        )
+        .arg(
+            Arg::with_name("stdout")
+                .long("stdout")
+                .takes_value(true)
+                .help("Where to redirect stdout")
+                .long_help("Where to redirect stdout. The path must be outside the jail"),
+        )
+        .arg(
+            Arg::with_name("stderr")
+                .long("stderr")
+                .takes_value(true)
+                .help("Where to redirect stderr")
+                .long_help("Where to redirect stderr. The path must be outside the jail"),
         )
 }

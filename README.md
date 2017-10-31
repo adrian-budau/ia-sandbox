@@ -14,8 +14,10 @@ What is done
 - [x] Namespacess (mount, pid, ipc, uts, user)
 - [x] Pivot root 
     - [x] Proper unmounting of all previous mounts
-- [ ] Redirect of stdin/stdout/stderr
+- [x] Redirect of stdin/stdout/stderr
 - [ ] Memory/Disk/Cpu limits
     - [ ] Setrlimit
     - [ ] Cgroups
 - [ ] Collect run data
+    - [x] Collect exit status (success, non zero exit status, killed by signal)
+    - [ ] Collect memory/time/disk usage

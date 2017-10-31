@@ -5,10 +5,20 @@ impl_child_error! {
     pub enum ChildError {
         ChdirError(String),
         ChrootError(String),
+        CloseFdError {
+            fd: i32,
+            name: String,
+            error: String,
+        },
         CreateDirError(String),
         ExecError(String),
         MountError {
             path: String,
+            error: String,
+        },
+        OpenFdError {
+            fd: i32,
+            name: String,
             error: String,
         },
         PivotRootError(String),
