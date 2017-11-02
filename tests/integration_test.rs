@@ -27,6 +27,12 @@ const EXIT_WITH_LAST_ARGUMENT: [(&'static str, &'static str); 1] = [
     ),
 ];
 
+const KILL_WITH_SIGNAL_ARG: [(&'static str, &'static str); 1] = [
+    (
+        "./target/debug/examples/kill_with_signal_arg",
+        "/kill_with_signal_arg",
+    ),
+];
 
 #[test]
 fn test_basic_sandbox() {
@@ -66,7 +72,7 @@ fn test_pivot_root() {
 
 #[test]
 fn test_unshare_net() {
-    utils::with_setup("test_pivot_root", HELLO_WORLD[..].iter(), |dir| {
+    utils::with_setup("test_unshare_net", HELLO_WORLD[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
             .new_root(dir.to_string_lossy())
             .share_net(false)
@@ -156,7 +162,7 @@ fn test_arguments() {
     );
 
     utils::with_setup(
-        "test_redirect_stdin",
+        "test_arguments",
         EXIT_WITH_LAST_ARGUMENT[..].iter(),
         |dir| {
             let run_info = ConfigBuilder::new(EXIT_WITH_LAST_ARGUMENT[0].1)
@@ -167,6 +173,42 @@ fn test_arguments() {
             assert!(matches!(
                 run_info.result(),
                 &RunInfoResult::NonZeroExitStatus(17)
+            ));
+        },
+    );
+}
+
+#[test]
+fn test_killed_by_signal() {
+    utils::with_setup(
+        "test_killed_by_signal",
+        KILL_WITH_SIGNAL_ARG[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(KILL_WITH_SIGNAL_ARG[0].1)
+                .new_root(dir.to_string_lossy())
+                .arg("8")
+                .build_and_run()
+                .unwrap();
+            println!("{}", run_info);
+            assert!(matches!(
+                run_info.result(),
+                &RunInfoResult::KilledBySignal(8)
+            ));
+        },
+    );
+
+    utils::with_setup(
+        "test_redirect_stdin",
+        KILL_WITH_SIGNAL_ARG[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(KILL_WITH_SIGNAL_ARG[0].1)
+                .new_root(dir.to_string_lossy())
+                .arg("11")
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(
+                run_info.result(),
+                &RunInfoResult::KilledBySignal(11)
             ));
         },
     );

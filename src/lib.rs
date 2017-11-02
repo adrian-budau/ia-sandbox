@@ -14,6 +14,7 @@ extern crate libc;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate simple_signal;
 
 #[macro_use]
 mod meta;
@@ -60,6 +61,10 @@ pub fn run_jail(config: Config) -> Result<RunInfo> {
             // Must be done after mount_proc so we can properly read and write
             // /proc/self/uid_map and /proc/self/gid_map
             ffi::set_uid_gid_maps(user_group_id)?;
+
+            // Move the process to a different process group (so it can't kill it's own
+            // father by sending signals to the whole process group)
+            ffi::move_to_diffrent_process_group()?;
 
             ffi::exec_command(config.command(), config.args())
         },

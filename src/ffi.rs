@@ -8,6 +8,7 @@ use std::iter;
 use std::marker::PhantomData;
 use std::os::unix::io::FromRawFd;
 use std::path::Path;
+use std::process;
 use std::ptr;
 use std::result::Result as StdResult;
 
@@ -16,6 +17,7 @@ use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_N
            CLONE_VFORK, SIGCHLD};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use simple_signal::{self, Signal};
 
 use config::ShareNet;
 use errors::{ChildError, ChildResult, Result, ResultExt};
@@ -113,6 +115,30 @@ where
         -1 => return Err(format!("Clone Error: {}", last_error_string()).into()),
         x => x,
     };
+
+    // Start waiting for fatal stuff
+    let child_pid = pid;
+    simple_signal::set_handler(
+        &[
+            Signal::Abrt,
+            Signal::Fpe,
+            Signal::Alrm,
+            Signal::Hup,
+            Signal::Ill,
+            Signal::Int,
+            Signal::Pipe,
+            Signal::Quit,
+            Signal::Segv,
+            Signal::Term,
+        ],
+        move |_| {
+            unsafe {
+                let _ = libc::kill(-child_pid, libc::SIGKILL);
+                let _ = libc::kill(child_pid, libc::SIGKILL);
+            };
+            process::exit(1);
+        },
+    );
 
     Ok(CloneHandle {
         pid,
@@ -283,6 +309,14 @@ pub fn redirect_fd(fd: Fd, path: &CStr) -> ChildResult<()> {
     }
 }
 
+pub fn move_to_diffrent_process_group() -> ChildResult<()> {
+    if unsafe { libc::setpgid(0, 0) } == -1 {
+        Err(ChildError::SetpgidError(last_error_string()))
+    } else {
+        Ok(())
+    }
+}
+
 fn sys_pivot_root(new_root: &CStr, old_root: &CStr) -> ChildResult<()> {
     match unsafe { libc::syscall(libc::SYS_pivot_root, new_root.as_ptr(), old_root.as_ptr()) } {
         -1 => Err(ChildError::PivotRootError({
@@ -368,9 +402,16 @@ impl<T: DeserializeOwned> CloneHandle<T> {
         }
 
         loop {
+            // Check if something killed us
             let mut status: libc::c_int = 0;
             match unsafe { libc::waitpid(self.pid, &mut status, 0) } {
-                -1 => return Err(format!("Error with waitpid").into()),
+                -1 => {
+                    let error = errno::Errno::last_error();
+                    if error.error_code() == libc::EINTR {
+                        continue; // interrupted by some signal
+                    }
+                    return Err(format!("Error with waitpid: {}", error.error_string()).into());
+                }
                 _ => {
                     if unsafe { libc::WIFEXITED(status) } {
                         let exit_code = unsafe { libc::WEXITSTATUS(status) };
