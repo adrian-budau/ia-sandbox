@@ -309,7 +309,7 @@ pub fn redirect_fd(fd: Fd, path: &CStr) -> ChildResult<()> {
     }
 }
 
-pub fn move_to_diffrent_process_group() -> ChildResult<()> {
+pub fn move_to_different_process_group() -> ChildResult<()> {
     if unsafe { libc::setpgid(0, 0) } == -1 {
         Err(ChildError::SetpgidError(last_error_string()))
     } else {

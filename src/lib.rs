@@ -64,7 +64,7 @@ pub fn run_jail(config: Config) -> Result<RunInfo> {
 
             // Move the process to a different process group (so it can't kill it's own
             // father by sending signals to the whole process group)
-            ffi::move_to_diffrent_process_group()?;
+            ffi::move_to_different_process_group()?;
 
             ffi::exec_command(config.command(), config.args())
         },
