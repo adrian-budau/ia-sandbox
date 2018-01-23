@@ -1,13 +1,14 @@
 use std::boxed::FnBox;
-use std::error::Error;
-use std::ffi::{CStr, CString};
+use std::error::Error as ErrorExt;
+use std::ffi::{CString, OsStr};
 use std::fmt::Debug;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::iter;
 use std::marker::PhantomData;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::FromRawFd;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::ptr;
 use std::result::Result as StdResult;
@@ -20,12 +21,13 @@ use serde::de::DeserializeOwned;
 use simple_signal::{self, Signal};
 
 use config::ShareNet;
-use errors::{ChildError, ChildResult, Result, ResultExt};
+use errors::{Error, FFIError};
 use run_info::{RunInfo, RunInfoResult};
+
+type Result<T> = StdResult<T, FFIError>;
 
 const DEFAULT_STACK_SIZE: usize = 256 * 1024;
 const CLONE_NEWNET: libc::c_int = 0x40000000;
-
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct UserId(libc::uid_t);
@@ -36,8 +38,8 @@ pub fn get_user_group_id() -> (UserId, GroupId) {
     return unsafe { (UserId(libc::getuid()), GroupId(libc::getgid())) };
 }
 
-pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> ChildResult<()> {
-    let uid_error = |_| ChildError::WriteUidError(last_error_string());
+pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
+    let uid_error = |_| FFIError::WriteUidError(last_error_string());
     let mut uid_map = OpenOptions::new()
         .write(true)
         .open("/proc/self/uid_map")
@@ -51,20 +53,12 @@ pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> ChildResult<()> {
     let mut setgroups = OpenOptions::new()
         .write(true)
         .open("/proc/self/setgroups")
-        .map_err(|_| {
-            ChildError::WriteGidError(format!(
-                "Could not open setgroups file: {}",
-                last_error_string()
-            ))
-        })?;
-    setgroups.write_all(b"deny").map_err(|_| {
-        ChildError::WriteGidError(format!(
-            "Could not write \"deny\" to setgroups file: {}",
-            last_error_string()
-        ))
-    })?;
+        .map_err(|_| FFIError::WriteSetGroupsError(last_error_string()))?;
+    setgroups
+        .write_all(b"deny")
+        .map_err(|_| FFIError::WriteSetGroupsError(last_error_string()))?;
 
-    let gid_error = |_| ChildError::WriteGidError(last_error_string());
+    let gid_error = |_| FFIError::WriteGidError(last_error_string());
     let mut gid_map = OpenOptions::new()
         .write(true)
         .open("/proc/self/gid_map")
@@ -92,7 +86,6 @@ where
     extern "C" fn cb(arg: *mut libc::c_void) -> libc::c_int {
         unsafe { Box::from_raw(arg as *mut Box<FnBox()>)() };
 
-
         return 0;
     }
 
@@ -112,7 +105,7 @@ where
             &*f as *const _ as *mut libc::c_void,
         )
     } {
-        -1 => return Err(format!("Clone Error: {}", last_error_string()).into()),
+        -1 => return Err(FFIError::CloneError(last_error_string())),
         x => x,
     };
 
@@ -148,25 +141,27 @@ where
 }
 
 const OLD_ROOT_NAME: &'static str = ".old_root";
-pub fn pivot_root<F>(new_root: &CStr, before_umount: F) -> ChildResult<()>
+pub fn pivot_root<F>(new_root: &Path, before_umount: F) -> Result<()>
 where
-    F: FnOnce() -> ChildResult<()>,
+    F: FnOnce() -> Result<()>,
 {
-    let old_root = format!("{}/{}", new_root.to_string_lossy(), OLD_ROOT_NAME);
+    let old_root = new_root.join(OLD_ROOT_NAME);
 
     // create an .old_root folder in case it doesn't exist
-    if !Path::new(&old_root).exists() {
-        fs::create_dir(&old_root)
-            .map_err(|err| ChildError::CreateDirError(err.description().into()))?;
+    if !old_root.exists() {
+        fs::create_dir(&old_root).map_err(|error| FFIError::CreateDirError {
+            path: old_root.to_path_buf(),
+            error: error.description().into(),
+        })?;
     }
 
-    let old_root = CString::new(old_root).unwrap();
+    let new_root_c_string = os_str_to_c_string(&new_root);
     // bind mount it on top of itself (this is necessary for pivot_root to work)
     // it must also be a private mount (and everything under it as well)
     let res = unsafe {
         libc::mount(
-            new_root.as_ptr(),
-            new_root.as_ptr(),
+            new_root_c_string.as_ptr(),
+            new_root_c_string.as_ptr(),
             ptr::null_mut(),
             libc::MS_REC | libc::MS_BIND | libc::MS_PRIVATE,
             ptr::null_mut(),
@@ -174,15 +169,18 @@ where
     };
 
     if res == -1 {
-        return Err(ChildError::MountError {
-            path: new_root.to_string_lossy().into_owned(),
+        return Err(FFIError::MountError {
+            path: new_root.to_path_buf(),
             error: last_error_string(),
         });
     }
 
     // Change directory first
-    if unsafe { libc::chdir(new_root.as_ptr()) } == -1 {
-        return Err(ChildError::ChdirError(last_error_string()));
+    if unsafe { libc::chdir(new_root_c_string.as_ptr()) } == -1 {
+        return Err(FFIError::ChdirError {
+            path: new_root.to_path_buf(),
+            error: last_error_string(),
+        });
     }
 
     sys_pivot_root(new_root, &old_root)?;
@@ -191,37 +189,44 @@ where
     // does change the root, though it's not guaranteed in the future)
     let root = CString::new(".").unwrap();
     if unsafe { libc::chroot(root.as_ptr()) } == -1 {
-        return Err(ChildError::ChrootError(last_error_string()));
+        return Err(FFIError::ChrootError {
+            path: ".".into(),
+            error: last_error_string(),
+        });
     }
 
     before_umount()?;
 
     // And unmount .old_root
-    let old_root = CString::new(format!("/{}", OLD_ROOT_NAME)).unwrap();
-    if unsafe { libc::umount2(old_root.as_ptr(), libc::MNT_DETACH) } == -1 {
-        Err(ChildError::MountError {
-            path: old_root.to_string_lossy().into_owned(),
-            error: format!("Unmounting error: {}", last_error_string()),
+    let old_root = Path::new("/").join(OLD_ROOT_NAME);
+    let old_root_c_string = os_str_to_c_string(&old_root);
+    if unsafe { libc::umount2(old_root_c_string.as_ptr(), libc::MNT_DETACH) } == -1 {
+        Err(FFIError::UMountError {
+            path: old_root,
+            error: last_error_string(),
         })
     } else {
         Ok(())
     }
 }
 
-pub fn mount_proc() -> ChildResult<()> {
+pub fn mount_proc() -> Result<()> {
     let name = CString::new("proc").unwrap();
-    let path = "/proc";
+    let path = PathBuf::from("/proc");
 
     // create /proc in case it doesn't exist (likely first time we pivot_root)
-    if !Path::new(&path).exists() {
-        fs::create_dir(&path).map_err(|err| ChildError::CreateDirError(err.description().into()))?;
+    if !path.exists() {
+        fs::create_dir(&path).map_err(|err| FFIError::CreateDirError {
+            path: path.clone(),
+            error: err.description().into(),
+        })?;
     }
-    let path = CString::new(path).unwrap();
+    let path_as_c_string = os_str_to_c_string(&path);
 
     let res = unsafe {
         libc::mount(
             name.as_ptr(),
-            path.as_ptr(),
+            path_as_c_string.as_ptr(),
             name.as_ptr(),
             0,
             ptr::null_mut(),
@@ -229,8 +234,8 @@ pub fn mount_proc() -> ChildResult<()> {
     };
 
     if res == -1 {
-        Err(ChildError::MountError {
-            path: "/proc".into(),
+        Err(FFIError::MountError {
+            path: path,
             error: last_error_string(),
         })
     } else {
@@ -240,27 +245,39 @@ pub fn mount_proc() -> ChildResult<()> {
 
 const EXEC_RETRIES: usize = 3;
 const RETRY_DELAY: libc::c_uint = 100000;
-pub fn exec_command<'a, 'b: 'a, T>(path: &'b CStr, arguments: T) -> ChildResult<()>
-where
-    T: IntoIterator<Item = &'a CStr>,
-{
-    let arguments: Vec<_> = iter::once(path)
-        .chain(arguments)
-        .map(|string| string.as_ptr()) // convert to C pointers
-        .chain(iter::once(ptr::null())) // add an ending NULL
+pub fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
+    let arguments_c_string: Vec<_> = iter::once(os_str_to_c_string(command))
+        .chain(arguments.iter().map(os_str_to_c_string)) // convert to C pointers
         .collect();
 
+    let arguments_with_null_ending: Vec<_> = arguments_c_string.iter()
+        .map(|c_string| c_string.as_ptr())
+        .chain(iter::once(ptr::null())) // add an ending NULL
+        .collect();
+    let command_as_c_string = os_str_to_c_string(command);
     for retry in 0..EXEC_RETRIES {
-        let res = unsafe { libc::execv(path.as_ptr(), arguments.as_slice().as_ptr()) };
+        let res = unsafe {
+            libc::execv(
+                command_as_c_string.as_ptr(),
+                arguments_with_null_ending.as_slice().as_ptr(),
+            )
+        };
 
         if res == -1 {
             let error = errno::Errno::last_error();
             if error.error_code() != libc::ETXTBSY || retry == EXEC_RETRIES - 1 {
-                return Err(ChildError::ExecError(error.error_string()));
+                return Err(FFIError::ExecError {
+                    command: command.to_path_buf(),
+                    arguments: arguments.iter().map(|&os_str| os_str.to_owned()).collect(),
+                    error: error.error_string(),
+                });
             }
             let res = unsafe { libc::usleep(RETRY_DELAY) };
             if res == -1 {
-                return Err(ChildError::UsleepError(last_error_string()));
+                return Err(FFIError::UsleepError {
+                    time: RETRY_DELAY,
+                    error: last_error_string(),
+                });
             }
         } else {
             return Ok(());
@@ -285,22 +302,23 @@ pub const STDERR: Fd = Fd(
     0o666,
 );
 
-pub fn redirect_fd(fd: Fd, path: &CStr) -> ChildResult<()> {
+pub fn redirect_fd(fd: Fd, path: &Path) -> Result<()> {
     if unsafe { libc::close(fd.0) } == -1 {
-        return Err(ChildError::CloseFdError {
+        return Err(FFIError::CloseFdError {
             fd: fd.0,
             name: fd.1.into(),
             error: last_error_string(),
         });
     }
 
-    match unsafe { libc::open(path.as_ptr(), fd.2, fd.3) } {
-        -1 => Err(ChildError::OpenFdError {
+    let path_as_c_string = os_str_to_c_string(path);
+    match unsafe { libc::open(path_as_c_string.as_ptr(), fd.2, fd.3) } {
+        -1 => Err(FFIError::OpenFdError {
             fd: fd.0,
             name: fd.1.into(),
             error: last_error_string(),
         }),
-        x if x != fd.0 => Err(ChildError::OpenFdError {
+        x if x != fd.0 => Err(FFIError::OpenFdError {
             fd: fd.0,
             name: fd.1.into(),
             error: format!("Wrong file descritor opened {}", x),
@@ -309,19 +327,31 @@ pub fn redirect_fd(fd: Fd, path: &CStr) -> ChildResult<()> {
     }
 }
 
-pub fn move_to_different_process_group() -> ChildResult<()> {
+pub fn move_to_different_process_group() -> Result<()> {
     if unsafe { libc::setpgid(0, 0) } == -1 {
-        Err(ChildError::SetpgidError(last_error_string()))
+        Err(FFIError::SetpgidError {
+            pid: 0,
+            pgid: 0,
+            error: last_error_string(),
+        })
     } else {
         Ok(())
     }
 }
 
-fn sys_pivot_root(new_root: &CStr, old_root: &CStr) -> ChildResult<()> {
-    match unsafe { libc::syscall(libc::SYS_pivot_root, new_root.as_ptr(), old_root.as_ptr()) } {
-        -1 => Err(ChildError::PivotRootError({
+fn sys_pivot_root(new_root: &Path, old_root: &Path) -> Result<()> {
+    let new_root_c_string = os_str_to_c_string(new_root);
+    let old_root_c_string = os_str_to_c_string(old_root);
+    match unsafe {
+        libc::syscall(
+            libc::SYS_pivot_root,
+            new_root_c_string.as_ptr(),
+            old_root_c_string.as_ptr(),
+        )
+    } {
+        -1 => {
             let errno = errno::Errno::last_error();
-            match errno.error_code() {
+            let error = match errno.error_code() {
                 libc::EBUSY => "new_root or put_old are on the current root\
                                 filesystem, or a filesystem is already\
                                 mounted on put_old."
@@ -332,8 +362,14 @@ fn sys_pivot_root(new_root: &CStr, old_root: &CStr) -> ChildResult<()> {
                                 CAP_SYS_ADMIN capability"
                     .into(),
                 _ => errno.error_string(),
-            }
-        })),
+            };
+
+            Err(FFIError::PivotRootError {
+                new_root: new_root.to_path_buf(),
+                old_root: old_root.to_path_buf(),
+                error,
+            })
+        }
         _ => Ok(()),
     }
 }
@@ -376,11 +412,16 @@ fn make_pipe() -> Result<(File, File)> {
     unsafe {
         let fd = &mut [0; 2];
         if libc::pipe2(fd.as_mut_ptr(), libc::O_CLOEXEC) == -1 {
-            Err("Error on pipe".into())
+            Err(FFIError::Pipe2Error(last_error_string()))
         } else {
             Ok((File::from_raw_fd(fd[0]), File::from_raw_fd(fd[1])))
         }
     }
+}
+
+// This should not fail on linux, considering valid os strings do not contain null
+fn os_str_to_c_string<T: AsRef<OsStr>>(os_str: T) -> CString {
+    CString::new(os_str.as_ref().as_bytes()).unwrap()
 }
 
 pub struct CloneHandle<T> {
@@ -390,16 +431,17 @@ pub struct CloneHandle<T> {
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn wait(mut self) -> Result<StdResult<RunInfo, T>> {
+    pub fn wait(mut self) -> StdResult<RunInfo<Option<T>>, Error> {
         let mut data = Vec::new();
         let _ = self.read_error_pipe
             .read_to_end(&mut data)
-            .chain_err(|| "Error reading from error pipe")?;
-        if data.len() > 0 {
-            return bincode::deserialize(&data)
-                .map(|x| Err(x))
-                .chain_err(|| "Bincode decode problem");
-        }
+            .map_err(|err| Error::DeserializeError(err.description().into()))?;
+        let result = if data.len() > 0 {
+            Some(bincode::deserialize(&data)
+                .map_err(|err| Error::DeserializeError(err.description().into()))?)
+        } else {
+            None
+        };
 
         loop {
             // Check if something killed us
@@ -410,27 +452,27 @@ impl<T: DeserializeOwned> CloneHandle<T> {
                     if error.error_code() == libc::EINTR {
                         continue; // interrupted by some signal
                     }
-                    return Err(format!("Error with waitpid: {}", error.error_string()).into());
+                    return Err(Error::FFIError(FFIError::WaitPidError(
+                        error.error_string(),
+                    )));
                 }
                 _ => {
                     if unsafe { libc::WIFEXITED(status) } {
                         let exit_code = unsafe { libc::WEXITSTATUS(status) };
                         if exit_code == 0 {
-                            return Ok(Ok(RunInfo::new(RunInfoResult::Success)));
+                            return Ok(RunInfo::new(RunInfoResult::Success(result)));
                         } else {
-                            return Ok(Ok(
-                                RunInfo::new(RunInfoResult::NonZeroExitStatus(exit_code)),
-                            ));
+                            return Ok(RunInfo::new(RunInfoResult::NonZeroExitStatus(exit_code)));
                         }
                     }
 
                     if unsafe { libc::WIFSIGNALED(status) } {
                         let signal = unsafe { libc::WTERMSIG(status) };
-                        return Ok(Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal))));
+                        return Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal)));
                     }
 
                     if unsafe { libc::WIFSTOPPED(status) || libc::WIFCONTINUED(status) } {
-                        return Err("Child process stopped/continued unexpected".into());
+                        return Err(Error::StoppedContinuedError);
                     }
                 }
             }

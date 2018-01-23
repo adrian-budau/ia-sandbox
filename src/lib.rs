@@ -9,15 +9,13 @@
 
 extern crate bincode;
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 extern crate libc;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate simple_signal;
 
-#[macro_use]
-mod meta;
 pub mod errors;
 pub mod run_info;
 pub mod config;
@@ -27,8 +25,7 @@ use config::Config;
 pub use errors::*;
 use run_info::RunInfo;
 
-
-pub fn run_jail(config: Config) -> Result<RunInfo> {
+pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
     let user_group_id = ffi::get_user_group_id();
     let handle = ffi::clone(
         || {
@@ -66,22 +63,14 @@ pub fn run_jail(config: Config) -> Result<RunInfo> {
             // father by sending signals to the whole process group)
             ffi::move_to_different_process_group()?;
 
-            ffi::exec_command(config.command(), config.args())
+            ffi::exec_command(config.command(), &config.args())
         },
         config.share_net(),
-    )?;
-    use std::result::Result as StdResult;
-    handle
-        .wait()
-        .and_then(|run_info: StdResult<RunInfo, ChildResult<()>>| {
-            run_info
-                .map_err(|err| {
-                    err.map(|()| {
-                        ChildError::Custom(
-                            "Child process successfully completed even though it used exec".into(),
-                        )
-                    }).unwrap_or_else(|err| err)
-                })
-                .map_err(|err| err.into())
+    ).map_err(Error::FFIError)?;
+    handle.wait().and_then(|run_info| {
+        run_info.and_then(|option| match option {
+            None => Ok(()),
+            Some(result) => result.map_err(Error::ChildError),
         })
+    })
 }

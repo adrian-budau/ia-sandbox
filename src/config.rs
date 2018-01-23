@@ -1,4 +1,5 @@
-use std::ffi::{CStr, CString};
+use std::ffi::{OsStr, OsString};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum ShareNet {
@@ -8,24 +9,24 @@ pub enum ShareNet {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Config {
-    command: CString,
-    args: Vec<CString>,
-    new_root: Option<CString>,
+    command: PathBuf,
+    args: Vec<OsString>,
+    new_root: Option<PathBuf>,
     share_net: ShareNet,
-    redirect_stdin: Option<CString>,
-    redirect_stdout: Option<CString>,
-    redirect_stderr: Option<CString>,
+    redirect_stdin: Option<PathBuf>,
+    redirect_stdout: Option<PathBuf>,
+    redirect_stderr: Option<PathBuf>,
 }
 
 impl Config {
     pub fn new(
-        command: CString,
-        args: Vec<CString>,
-        new_root: Option<CString>,
+        command: PathBuf,
+        args: Vec<OsString>,
+        new_root: Option<PathBuf>,
         share_net: ShareNet,
-        redirect_stdin: Option<CString>,
-        redirect_stdout: Option<CString>,
-        redirect_stderr: Option<CString>,
+        redirect_stdin: Option<PathBuf>,
+        redirect_stdout: Option<PathBuf>,
+        redirect_stderr: Option<PathBuf>,
     ) -> Config {
         Config {
             command,
@@ -38,37 +39,40 @@ impl Config {
         }
     }
 
-    pub fn command(&self) -> &CStr {
+    pub fn command(&self) -> &Path {
         &self.command
     }
 
-    pub fn args<'a>(&'a self) -> impl Iterator<Item = &'a CStr> {
-        self.args.iter().map(|c_string| c_string.as_c_str())
+    pub fn args<'a>(&'a self) -> Vec<&'a OsStr> {
+        self.args
+            .iter()
+            .map(|os_string| os_string.as_os_str())
+            .collect()
     }
 
-    pub fn new_root(&self) -> Option<&CStr> {
-        self.new_root.as_ref().map(|c_string| c_string.as_c_str())
+    pub fn new_root(&self) -> Option<&Path> {
+        self.new_root.as_ref().map(|path_buf| path_buf.as_path())
     }
 
     pub fn share_net(&self) -> ShareNet {
         self.share_net
     }
 
-    pub fn redirect_stdin(&self) -> Option<&CStr> {
+    pub fn redirect_stdin(&self) -> Option<&Path> {
         self.redirect_stdin
             .as_ref()
-            .map(|c_string| c_string.as_c_str())
+            .map(|path_buf| path_buf.as_path())
     }
 
-    pub fn redirect_stdout(&self) -> Option<&CStr> {
+    pub fn redirect_stdout(&self) -> Option<&Path> {
         self.redirect_stdout
             .as_ref()
-            .map(|c_string| c_string.as_c_str())
+            .map(|path_buf| path_buf.as_path())
     }
 
-    pub fn redirect_stderr(&self) -> Option<&CStr> {
+    pub fn redirect_stderr(&self) -> Option<&Path> {
         self.redirect_stderr
             .as_ref()
-            .map(|c_string| c_string.as_c_str())
+            .map(|path_buf| path_buf.as_path())
     }
 }

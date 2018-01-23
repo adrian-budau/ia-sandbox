@@ -17,6 +17,6 @@ fn main() {
             1
         },
         11 => unsafe { libc::strcmp(ptr::null(), ptr::null()) },
-        _ => 1
+        _ => 1,
     });
 }

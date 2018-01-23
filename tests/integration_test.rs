@@ -37,10 +37,8 @@ const KILL_WITH_SIGNAL_ARG: [(&'static str, &'static str); 1] = [
 #[test]
 fn test_basic_sandbox() {
     utils::with_setup("test_basic_sandbox", HELLO_WORLD.iter(), |dir| {
-        let run_info = ConfigBuilder::new(
-            dir.join(HELLO_WORLD[0].1.trim_left_matches('/'))
-                .to_string_lossy(),
-        ).build_and_run()
+        let run_info = ConfigBuilder::new(dir.join(HELLO_WORLD[0].1.trim_left_matches('/')))
+            .build_and_run()
             .unwrap();
         assert!(run_info.is_success());
     });
@@ -49,12 +47,12 @@ fn test_basic_sandbox() {
 #[test]
 fn test_exec_failed() {
     utils::with_setup("test_exec_failed", HELLO_WORLD[..].iter(), |dir| {
-        let result = ConfigBuilder::new(dir.join("missing").to_string_lossy()).build_and_run();
+        let result = ConfigBuilder::new(dir.join("missing")).build_and_run();
 
         use ia_sandbox::errors::*;
         assert!(matches!(
             result,
-            Err(Error(ErrorKind::ChildError(ChildError::ExecError(_)), _))
+            Err(Error::ChildError(FFIError::ExecError { .. }))
         ));
     });
 }
@@ -63,7 +61,7 @@ fn test_exec_failed() {
 fn test_pivot_root() {
     utils::with_setup("test_pivot_root", HELLO_WORLD[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir.to_string_lossy())
+            .new_root(dir)
             .build_and_run()
             .unwrap();
         assert!(run_info.is_success());
@@ -74,7 +72,7 @@ fn test_pivot_root() {
 fn test_unshare_net() {
     utils::with_setup("test_unshare_net", HELLO_WORLD[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir.to_string_lossy())
+            .new_root(dir)
             .share_net(false)
             .build_and_run()
             .unwrap();
@@ -89,8 +87,8 @@ fn test_redirect_stdin() {
         input.write(b"0").unwrap();
 
         let run_info = ConfigBuilder::new(EXIT_WITH_INPUT[0].1)
-            .new_root(dir.to_string_lossy())
-            .stdin(dir.join("input").to_string_lossy())
+            .new_root(dir)
+            .stdin(dir.join("input"))
             .build_and_run()
             .unwrap();
         assert!(run_info.is_success());
@@ -101,8 +99,8 @@ fn test_redirect_stdin() {
         input.write(b"23").unwrap();
 
         let run_info = ConfigBuilder::new(EXIT_WITH_INPUT[0].1)
-            .new_root(dir.to_string_lossy())
-            .stdin(dir.join("input").to_string_lossy())
+            .new_root(dir)
+            .stdin(dir.join("input"))
             .build_and_run()
             .unwrap();
         assert!(matches!(
@@ -116,8 +114,8 @@ fn test_redirect_stdin() {
 fn test_redirect_stdout() {
     utils::with_setup("test_redirect_stdout", HELLO_WORLD[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir.to_string_lossy())
-            .stdout(dir.join("output").to_string_lossy())
+            .new_root(dir)
+            .stdout(dir.join("output"))
             .build_and_run()
             .unwrap();
         assert!(run_info.is_success());
@@ -133,8 +131,8 @@ fn test_redirect_stdout() {
 fn test_redirect_stderr() {
     utils::with_setup("test_redirect_stderr", HELLO_WORLD[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir.to_string_lossy())
-            .stderr(dir.join("stderr").to_string_lossy())
+            .new_root(dir)
+            .stderr(dir.join("stderr"))
             .build_and_run()
             .unwrap();
         assert!(run_info.is_success());
@@ -153,7 +151,7 @@ fn test_arguments() {
         EXIT_WITH_LAST_ARGUMENT[..].iter(),
         |dir| {
             let run_info = ConfigBuilder::new(EXIT_WITH_LAST_ARGUMENT[0].1)
-                .new_root(dir.to_string_lossy())
+                .new_root(dir)
                 .arg("0")
                 .build_and_run()
                 .unwrap();
@@ -166,7 +164,7 @@ fn test_arguments() {
         EXIT_WITH_LAST_ARGUMENT[..].iter(),
         |dir| {
             let run_info = ConfigBuilder::new(EXIT_WITH_LAST_ARGUMENT[0].1)
-                .new_root(dir.to_string_lossy())
+                .new_root(dir)
                 .args(vec!["24", "0", "17"])
                 .build_and_run()
                 .unwrap();
@@ -185,7 +183,7 @@ fn test_killed_by_signal() {
         KILL_WITH_SIGNAL_ARG[..].iter(),
         |dir| {
             let run_info = ConfigBuilder::new(KILL_WITH_SIGNAL_ARG[0].1)
-                .new_root(dir.to_string_lossy())
+                .new_root(dir)
                 .arg("8")
                 .build_and_run()
                 .unwrap();
@@ -202,7 +200,7 @@ fn test_killed_by_signal() {
         KILL_WITH_SIGNAL_ARG[..].iter(),
         |dir| {
             let run_info = ConfigBuilder::new(KILL_WITH_SIGNAL_ARG[0].1)
-                .new_root(dir.to_string_lossy())
+                .new_root(dir)
                 .arg("11")
                 .build_and_run()
                 .unwrap();

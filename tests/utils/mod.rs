@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -28,10 +28,12 @@ where
                 .map(|s| s.to_owned())
                 .collect::<Vec<_>>()
         })
-        .filter_map(|token| if token.starts_with("/") {
-            Some(token.into())
-        } else {
-            None
+        .filter_map(|token| {
+            if token.starts_with("/") {
+                Some(token.into())
+            } else {
+                None
+            }
         })
         .collect()
 }
@@ -72,17 +74,17 @@ where
 }
 
 pub struct ConfigBuilder {
-    command: String,
-    args: Vec<String>,
-    new_root: Option<String>,
+    command: PathBuf,
+    args: Vec<OsString>,
+    new_root: Option<PathBuf>,
     share_net: bool,
-    redirect_stdin: Option<String>,
-    redirect_stdout: Option<String>,
-    redirect_stderr: Option<String>,
+    redirect_stdin: Option<PathBuf>,
+    redirect_stdout: Option<PathBuf>,
+    redirect_stderr: Option<PathBuf>,
 }
 
 impl ConfigBuilder {
-    pub fn new<T: AsRef<str>>(command: T) -> ConfigBuilder {
+    pub fn new<T: AsRef<OsStr>>(command: T) -> ConfigBuilder {
         ConfigBuilder {
             command: command.as_ref().into(),
             args: vec![],
@@ -94,7 +96,7 @@ impl ConfigBuilder {
         }
     }
 
-    pub fn arg<T: AsRef<str>>(&mut self, arg: T) -> &mut ConfigBuilder {
+    pub fn arg<T: AsRef<OsStr>>(&mut self, arg: T) -> &mut ConfigBuilder {
         self.args.push(arg.as_ref().into());
         self
     }
@@ -102,7 +104,7 @@ impl ConfigBuilder {
     pub fn args<I, T>(&mut self, args: I) -> &mut ConfigBuilder
     where
         I: IntoIterator<Item = T>,
-        T: AsRef<str>,
+        T: AsRef<OsStr>,
     {
         for arg in args.into_iter() {
             self.arg(arg);
@@ -111,7 +113,7 @@ impl ConfigBuilder {
         self
     }
 
-    pub fn new_root<T: AsRef<str>>(&mut self, new_root: T) -> &mut ConfigBuilder {
+    pub fn new_root<T: AsRef<Path>>(&mut self, new_root: T) -> &mut ConfigBuilder {
         self.new_root = Some(new_root.as_ref().into());
         self
     }
@@ -121,38 +123,34 @@ impl ConfigBuilder {
         self
     }
 
-    pub fn stdin<T: AsRef<str>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
+    pub fn stdin<T: AsRef<Path>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
         self.redirect_stdin = Some(redirect_stdin.as_ref().into());
         self
     }
 
-    pub fn stdout<T: AsRef<str>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
+    pub fn stdout<T: AsRef<Path>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
         self.redirect_stdout = Some(redirect_stdin.as_ref().into());
         self
     }
 
-    pub fn stderr<T: AsRef<str>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
+    pub fn stderr<T: AsRef<Path>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
         self.redirect_stderr = Some(redirect_stdin.as_ref().into());
         self
     }
 
-    pub fn build_and_run(&mut self) -> Result<RunInfo> {
-        fn to_cstring<T: AsRef<str>>(string: T) -> CString {
-            CString::new(string.as_ref()).unwrap()
-        }
-
+    pub fn build_and_run(&mut self) -> Result<RunInfo<()>> {
         let config = Config::new(
-            to_cstring(&self.command),
-            self.args.iter().map(to_cstring).collect(),
-            self.new_root.as_ref().map(to_cstring),
+            self.command.clone(),
+            self.args.clone(),
+            self.new_root.clone(),
             if self.share_net {
                 ShareNet::Share
             } else {
                 ShareNet::Unshare
             },
-            self.redirect_stdin.as_ref().map(to_cstring),
-            self.redirect_stdout.as_ref().map(to_cstring),
-            self.redirect_stderr.as_ref().map(to_cstring),
+            self.redirect_stdin.clone(),
+            self.redirect_stdout.clone(),
+            self.redirect_stderr.clone(),
         );
 
         ia_sandbox::run_jail(config)

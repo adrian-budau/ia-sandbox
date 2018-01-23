@@ -1,17 +1,20 @@
-use std::ffi::{CString, OsStr};
+use std::ffi::OsString;
 use std::ops;
+use std::path::PathBuf;
+use std::result;
 
-use ia_sandbox::{Result, ResultExt};
 use ia_sandbox::config::{Config, ShareNet};
 
 use app;
 use clap;
+use failure;
+
+type Result<T> = result::Result<T, failure::Error>;
 
 pub fn parse() -> Result<Config> {
     let matches = app::app().get_matches();
     ArgMatches(matches).to_config()
 }
-
 
 struct ArgMatches<'a>(clap::ArgMatches<'a>);
 
@@ -22,20 +25,11 @@ impl<'a> ops::Deref for ArgMatches<'a> {
     }
 }
 
-fn to_cstring(string: &OsStr) -> Result<CString> {
-    string
-        .to_str()
-        .ok_or_else(|| "Could not parse OsStr as String".into())
-        .and_then(|s| {
-            CString::new(s).chain_err(|| "Could not convert arg to CString")
-        })
-}
-
 impl<'a> ArgMatches<'a> {
     fn to_config(&self) -> Result<Config> {
         Ok(Config::new(
             self.command()?,
-            self.args()?,
+            self.args(),
             self.new_root(),
             self.share_net(),
             self.redirect_stdin(),
@@ -44,22 +38,21 @@ impl<'a> ArgMatches<'a> {
         ))
     }
 
-    fn command(&self) -> Result<CString> {
+    fn command(&self) -> Result<PathBuf> {
         self.value_of_os("COMMAND")
-            .ok_or("No command was specified".into())
-            .and_then(|x| to_cstring(&x))
+            .ok_or(format_err!("No command was specified"))
+            .map(PathBuf::from)
     }
 
-    fn args(&self) -> Result<Vec<CString>> {
+    fn args(&self) -> Vec<OsString> {
         match self.values_of_os("ARGS") {
-            None => Ok(vec![]),
-            Some(vals) => vals.map(|x| to_cstring(&x.to_os_string())).collect(),
+            None => vec![],
+            Some(vals) => vals.map(|x| x.to_os_string()).collect(),
         }
     }
 
-    fn new_root(&self) -> Option<CString> {
-        self.value_of_os("new-root")
-            .and_then(|x| to_cstring(x).ok())
+    fn new_root(&self) -> Option<PathBuf> {
+        self.value_of_os("new-root").map(PathBuf::from)
     }
 
     fn share_net(&self) -> ShareNet {
@@ -69,15 +62,15 @@ impl<'a> ArgMatches<'a> {
         }
     }
 
-    fn redirect_stdin(&self) -> Option<CString> {
-        self.value_of_os("stdin").and_then(|x| to_cstring(x).ok())
+    fn redirect_stdin(&self) -> Option<PathBuf> {
+        self.value_of_os("stdin").map(PathBuf::from)
     }
 
-    fn redirect_stdout(&self) -> Option<CString> {
-        self.value_of_os("stdout").and_then(|x| to_cstring(x).ok())
+    fn redirect_stdout(&self) -> Option<PathBuf> {
+        self.value_of_os("stdout").map(PathBuf::from)
     }
 
-    fn redirect_stderr(&self) -> Option<CString> {
-        self.value_of_os("stderr").and_then(|x| to_cstring(x).ok())
+    fn redirect_stderr(&self) -> Option<PathBuf> {
+        self.value_of_os("stderr").map(PathBuf::from)
     }
 }
