@@ -3,8 +3,10 @@ extern crate tempdir;
 
 use std::fs::File;
 use std::io::{Read, Write};
+use std::time::Duration;
 
 use ia_sandbox::run_info::RunInfoResult;
+use ia_sandbox::config::Limits;
 
 #[macro_use]
 mod utils;
@@ -31,6 +33,13 @@ const KILL_WITH_SIGNAL_ARG: [(&'static str, &'static str); 1] = [
     (
         "./target/debug/examples/kill_with_signal_arg",
         "/kill_with_signal_arg",
+    ),
+];
+
+const SLEEP_2_SECOND: [(&'static str, &'static str); 1] = [
+    (
+        "./target/debug/examples/sleep_2_seconds",
+        "/sleep_2_seconds",
     ),
 ];
 
@@ -196,7 +205,7 @@ fn test_killed_by_signal() {
     );
 
     utils::with_setup(
-        "test_redirect_stdin",
+        "test_killed_by_signal",
         KILL_WITH_SIGNAL_ARG[..].iter(),
         |dir| {
             let run_info = ConfigBuilder::new(KILL_WITH_SIGNAL_ARG[0].1)
@@ -210,4 +219,40 @@ fn test_killed_by_signal() {
             ));
         },
     );
+}
+
+#[test]
+fn test_wall_time_limit_exceeded() {
+    utils::with_setup(
+        "test_wall_time_limit_exceeded",
+        SLEEP_2_SECOND[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
+                .new_root(dir)
+                .limits(Limits::new(Some(Duration::from_secs(4))))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(
+                    run_info.result(),
+                    &RunInfoResult::Success(_)
+            ));
+        },
+    );
+
+    utils::with_setup(
+        "test_wall_time_limit_exceeded",
+        SLEEP_2_SECOND[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
+                .new_root(dir)
+                .limits(Limits::new(Some(Duration::from_secs(1))))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(
+                    run_info.result(),
+                    &RunInfoResult::WallTimeLimitExceeded
+            ));
+        },
+    );
+
 }

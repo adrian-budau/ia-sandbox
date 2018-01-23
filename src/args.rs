@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::ops;
 use std::path::PathBuf;
 use std::result;
+use std::time::Duration;
 
 use ia_sandbox::config::{Config, Limits, ShareNet};
 
@@ -25,16 +26,16 @@ impl<'a> ops::Deref for ArgMatches<'a> {
     }
 }
 
-fn parse_duration(string: &str) -> Result<u64> {
+fn parse_duration(string: &str) -> Result<Duration> {
     let number_index = string
         .find(|c: char| !c.is_digit(10))
         .ok_or(format_err!("Could not find duration suffix (s/ns/ms): {}", string))?;
     let (number, suffix) = string.split_at(number_index);
     let number = number.parse::<u64>().context(format_err!("Could not parse number {}", number))?;
     match suffix {
-        "ns" => Ok(number),
-        "ms" => Ok(number * 1_000_000),
-        "s" => Ok(number * 1_000_000_000),
+        "ns" => Ok(Duration::from_nanos(number)),
+        "ms" => Ok(Duration::from_millis(number)),
+        "s" => Ok(Duration::from_secs(number)),
         suffix => Err(format_err!("Unrecognized suffix: {}", suffix).into()),
     }
 }
@@ -98,7 +99,7 @@ impl<'a> ArgMatches<'a> {
         self.value_of_os("stderr").map(PathBuf::from)
     }
 
-    fn wall_time(&self) -> Result<Option<u64>> {
+    fn wall_time(&self) -> Result<Option<Duration>> {
         Ok(flip_option_result(self.value_of("wall-time").map(|x| parse_duration(x))).context("Could not parse wall time")?)
     }
 }

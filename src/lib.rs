@@ -26,6 +26,9 @@ use run_info::RunInfo;
 
 pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
     let user_group_id = ffi::get_user_group_id();
+
+    ffi::set_sig_alarm_handler().map_err(Error::FFIError)?;
+
     // Start a supervisor process in a different pid namespace
     // If by any chance the supervisor process dies, by rules of pid namespaces
     // all its descendant processes will die as well

@@ -60,6 +60,11 @@ pub enum FFIError {
         pgid: i32,
         error: String,
     },
+    #[fail(display = "Could not set a signal handler for {}: {}", signal, error)]
+    SigActionError {
+        signal: String,
+        error: String,
+    },
     #[fail(display = "Could not umount path: {:?}: {}", path, error)]
     UMountError {
         path: PathBuf,

@@ -1,5 +1,6 @@
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum ShareNet {
@@ -8,19 +9,17 @@ pub enum ShareNet {
 }
 
 /// Limits for memory/time
-/// Time limits are given in nanoseconds
-/// Memory in bytes
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Limits {
-    wall_time: Option<u64>,
+    wall_time: Option<Duration>,
 }
 
 impl Limits {
-    pub fn new(wall_time: Option<u64>) -> Limits {
+    pub fn new(wall_time: Option<Duration>) -> Limits {
         Limits { wall_time }
     }
 
-    pub fn wall_time(&self) -> Option<u64> {
+    pub fn wall_time(&self) -> Option<Duration> {
         self.wall_time
     }
 }
@@ -103,7 +102,7 @@ impl Config {
             .map(|path_buf| path_buf.as_path())
     }
 
-    pub fn limits(&self) -> Limits {
-        self.limits
+    pub fn limits(&self) -> &Limits {
+        &self.limits
     }
 }

@@ -1,4 +1,5 @@
 #![feature(fnbox)]
+#![feature(duration_extras)]
 #[macro_use]
 extern crate clap;
 #[macro_use]

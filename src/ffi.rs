@@ -11,6 +11,8 @@ use std::os::unix::io::FromRawFd;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::result::Result as StdResult;
+use std::mem;
+use std::time::{Duration, Instant};
 
 use bincode;
 use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
@@ -77,7 +79,27 @@ pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
     Ok(())
 }
 
-pub fn _set_alarm_interval(interval: i64) -> Result<()>{
+#[allow(trivial_casts)]
+pub fn set_sig_alarm_handler() -> Result<()> {
+    extern "C" fn handler(_: libc::c_int, _: *mut libc::siginfo_t, _: *mut libc::c_void) {}
+
+    let mut sigaction: libc::sigaction = unsafe { mem::uninitialized() };
+    sigaction.sa_flags = libc::SA_SIGINFO;
+    sigaction.sa_sigaction = unsafe { mem::transmute::<_, libc::sighandler_t>(handler as extern "C" fn(_, _, _)) };
+    let _ = unsafe { libc::sigemptyset(&mut sigaction.sa_mask) };
+    if unsafe {
+        libc::sigaction(libc::SIGALRM, &mut sigaction, ptr::null_mut())
+    } == -1 {
+        Err(FFIError::SigActionError {
+            signal: "SIGALRM".into(),
+            error: last_error_string()
+        })
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_alarm_interval(interval: i64) -> Result<()> {
     let timeval = libc::timeval {
         tv_sec: interval / 1_000_000,
         tv_usec: interval % 1_000_000
@@ -98,7 +120,7 @@ pub fn _set_alarm_interval(interval: i64) -> Result<()>{
 }
 
 /// how often SIGALRM should trigger (i microseconds)
-const _ALARM_TIMER_INTERVAL: i64 = 50_000;
+const ALARM_TIMER_INTERVAL: i64 = 50_000;
 
 pub fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
 where
@@ -139,7 +161,7 @@ where
         x => x,
     };
 
-    //set_alarm_interval(ALARM_TIMER_INTERVAL)?;
+    set_alarm_interval(ALARM_TIMER_INTERVAL)?;
 
     Ok(CloneHandle {
         pid,
@@ -447,7 +469,8 @@ pub struct CloneHandle<T> {
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn wait(mut self, _timeout: Option<u64>) -> StdResult<RunInfo<Option<T>>, Error> {
+    pub fn wait(mut self, timeout: Option<Duration>) -> StdResult<RunInfo<Option<T>>, Error> {
+        let timer = Instant::now();
         let mut data = Vec::new();
         let _ = self.read_error_pipe
             .read_to_end(&mut data)
@@ -460,7 +483,12 @@ impl<T: DeserializeOwned> CloneHandle<T> {
         };
 
         loop {
-            println!("Loop");
+            for &timeout in &timeout {
+                if timer.elapsed() >= timeout {
+                    return Ok(RunInfo::new(RunInfoResult::WallTimeLimitExceeded));
+                }
+            }
+
             // Check if something killed us
             let mut status: libc::c_int = 0;
             match unsafe { libc::waitpid(self.pid, &mut status, 0) } {

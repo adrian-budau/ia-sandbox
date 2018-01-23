@@ -5,6 +5,7 @@ pub enum RunInfoResult<T> {
     Success(T),
     NonZeroExitStatus(i32),
     KilledBySignal(i32),
+    WallTimeLimitExceeded,
 }
 
 impl<T> RunInfoResult<T> {
@@ -25,6 +26,7 @@ impl<T> RunInfoResult<T> {
                 RunInfoResult::NonZeroExitStatus(exit_status)
             }
             RunInfoResult::KilledBySignal(signal) => RunInfoResult::KilledBySignal(signal),
+            RunInfoResult::WallTimeLimitExceeded => RunInfoResult::WallTimeLimitExceeded,
         })
     }
 
@@ -44,6 +46,7 @@ impl<T> Display for RunInfoResult<T> {
                 write!(f, "Non zero exit status: {}", exit_code)
             }
             &RunInfoResult::KilledBySignal(ref signal) => write!(f, "Killed by Signal {}", signal),
+            &RunInfoResult::WallTimeLimitExceeded => write!(f, "Wall time limit exceeded"),
         }
     }
 }
