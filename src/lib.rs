@@ -73,7 +73,7 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
 
             ffi::exec_command(config.command(), &config.args())
         }).map_err(Error::FFIError)?
-            .wait()
+            .wait(config.limits().wall_time())
             .and_then(|run_info| {
                 run_info.and_then(|option| match option {
                     None => Ok(()),
@@ -81,7 +81,7 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
                 })
             })
     }).map_err(Error::FFIError)?
-        .wait()
+        .wait(None)
         .and_then(|run_info| {
             run_info
                 .success() // we only care if supervisor process successfully finished

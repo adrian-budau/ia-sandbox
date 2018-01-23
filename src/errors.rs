@@ -51,7 +51,9 @@ pub enum FFIError {
         old_root: PathBuf,
         error: String,
     },
-    #[fail(display = "Could not set process to die when parent dies")] PrSetPDeathSigError(String),
+    #[fail(display = "Could not set process to die when parent dies: {}", _0)] PrSetPDeathSigError(String),
+    #[fail(display = "Could not set interval timer alarm: {}", _0)]
+    SetITimerError(String),
     #[fail(display = "Could not set process group id of {} to {}: {}", pid, pgid, error)]
     SetpgidError {
         pid: i32,
@@ -70,7 +72,7 @@ pub enum FFIError {
     },
     #[fail(display = "Could not write /proc/self/uid_map file: {}", _0)] WriteUidError(String),
     #[fail(display = "Could not write /proc/self/uid_map file: {}", _0)] WriteGidError(String),
-    #[fail(display = "Could not wait for process")] WaitPidError(String),
+    #[fail(display = "Could not wait for process: {}", _0)] WaitPidError(String),
     #[fail(display = "Could not write /proc/self/setgroups file: {}", _0)]
     WriteSetGroupsError(String),
 }
@@ -80,7 +82,7 @@ pub enum Error {
     #[fail(display = "Child process error occurred.")] ChildError(#[cause] FFIError),
     #[fail(display = "Child process successfully completed even though it used exec")]
     ContinuedPastExecError(String),
-    #[fail(display = "Could not deserialize process result")] DeserializeError(String),
+    #[fail(display = "Could not deserialize process result: {}", _0)] DeserializeError(String),
     #[fail(display = "FFI Error occurred.")] FFIError(#[cause] FFIError),
     #[fail(display = "Child process stopped/continued unexpected")] StoppedContinuedError,
     #[fail(display = "Supervisor process died and could not collect execution information")]

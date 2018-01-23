@@ -3,11 +3,11 @@ use std::ops;
 use std::path::PathBuf;
 use std::result;
 
-use ia_sandbox::config::{Config, ShareNet};
+use ia_sandbox::config::{Config, Limits, ShareNet};
 
 use app;
 use clap;
-use failure;
+use failure::{self, ResultExt};
 
 type Result<T> = result::Result<T, failure::Error>;
 
@@ -25,8 +25,31 @@ impl<'a> ops::Deref for ArgMatches<'a> {
     }
 }
 
+fn parse_duration(string: &str) -> Result<u64> {
+    let number_index = string
+        .find(|c: char| !c.is_digit(10))
+        .ok_or(format_err!("Could not find duration suffix (s/ns/ms): {}", string))?;
+    let (number, suffix) = string.split_at(number_index);
+    let number = number.parse::<u64>().context(format_err!("Could not parse number {}", number))?;
+    match suffix {
+        "ns" => Ok(number),
+        "ms" => Ok(number * 1_000_000),
+        "s" => Ok(number * 1_000_000_000),
+        suffix => Err(format_err!("Unrecognized suffix: {}", suffix).into()),
+    }
+}
+
+fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
+    match arg {
+        None => Ok(None),
+        Some(Ok(x)) => Ok(Some(x)),
+        Some(Err(err)) => Err(err),
+    }
+}
+
 impl<'a> ArgMatches<'a> {
     fn to_config(&self) -> Result<Config> {
+        let limits = Limits::new(self.wall_time()?);
         Ok(Config::new(
             self.command()?,
             self.args(),
@@ -35,6 +58,7 @@ impl<'a> ArgMatches<'a> {
             self.redirect_stdin(),
             self.redirect_stdout(),
             self.redirect_stderr(),
+            limits,
         ))
     }
 
@@ -72,5 +96,9 @@ impl<'a> ArgMatches<'a> {
 
     fn redirect_stderr(&self) -> Option<PathBuf> {
         self.value_of_os("stderr").map(PathBuf::from)
+    }
+
+    fn wall_time(&self) -> Result<Option<u64>> {
+        Ok(flip_option_result(self.value_of("wall-time").map(|x| parse_duration(x))).context("Could not parse wall time")?)
     }
 }

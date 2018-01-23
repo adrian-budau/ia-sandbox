@@ -78,4 +78,17 @@ pub fn app() -> App<'static, 'static> {
                 .help("Where to redirect stderr")
                 .long_help("Where to redirect stderr. The path must be outside the jail"),
         )
+        .arg(
+            Arg::with_name("wall-time")
+                .long("wall-time")
+                .short("wt")
+                .takes_value(true)
+                .help("Wall time limit")
+                .long_help(
+                    "Wall time limit. If the executable runs for more than this\n\
+                     many seconds (in real time) it is killed.\n\
+                     Given as an unsigned number followed by one of the following\n\
+                     suffixes ns(nanoseconds), ms(milliseconds) or s(seconds)",
+                ),
+        )
 }

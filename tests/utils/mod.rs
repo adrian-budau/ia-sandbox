@@ -7,7 +7,7 @@ use std::process::Command;
 use tempdir;
 
 use ia_sandbox::{self, Result};
-use ia_sandbox::config::{Config, ShareNet};
+use ia_sandbox::config::{Config, ShareNet, Limits};
 use ia_sandbox::run_info::RunInfo;
 
 fn get_exec_libs<T>(file: T) -> Vec<PathBuf>
@@ -81,6 +81,7 @@ pub struct ConfigBuilder {
     redirect_stdin: Option<PathBuf>,
     redirect_stdout: Option<PathBuf>,
     redirect_stderr: Option<PathBuf>,
+    limits: Option<Limits>,
 }
 
 impl ConfigBuilder {
@@ -93,6 +94,7 @@ impl ConfigBuilder {
             redirect_stdin: Some("/dev/null".into()),
             redirect_stdout: Some("/dev/null".into()),
             redirect_stderr: Some("/dev/null".into()),
+            limits: None,
         }
     }
 
@@ -138,6 +140,11 @@ impl ConfigBuilder {
         self
     }
 
+    pub fn limits(&mut self, limits: Limits) -> &mut ConfigBuilder {
+        self.limits = Some(limits);
+        self
+    }
+
     pub fn build_and_run(&mut self) -> Result<RunInfo<()>> {
         let config = Config::new(
             self.command.clone(),
@@ -151,6 +158,7 @@ impl ConfigBuilder {
             self.redirect_stdin.clone(),
             self.redirect_stdout.clone(),
             self.redirect_stderr.clone(),
+            self.limits.unwrap_or(Default::default()),
         );
 
         ia_sandbox::run_jail(config)

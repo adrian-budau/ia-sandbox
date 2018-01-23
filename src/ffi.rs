@@ -77,6 +77,29 @@ pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
     Ok(())
 }
 
+pub fn _set_alarm_interval(interval: i64) -> Result<()>{
+    let timeval = libc::timeval {
+        tv_sec: interval / 1_000_000,
+        tv_usec: interval % 1_000_000
+    };
+
+    let itimerval = libc::itimerval {
+        it_interval: timeval,
+        it_value: timeval,
+    };
+
+    if unsafe {
+        #[allow(trivial_casts)]
+        libc::syscall(libc::SYS_setitimer, libc::ITIMER_REAL, &itimerval as *const libc::itimerval, ptr::null() as *const libc::itimerval) } == -1 {
+        Err(FFIError::SetITimerError(last_error_string()))
+    } else {
+        Ok(())
+    }
+}
+
+/// how often SIGALRM should trigger (i microseconds)
+const _ALARM_TIMER_INTERVAL: i64 = 50_000;
+
 pub fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
 where
     F: FnOnce() -> T + Send,
@@ -115,6 +138,8 @@ where
         -1 => return Err(FFIError::CloneError(last_error_string())),
         x => x,
     };
+
+    //set_alarm_interval(ALARM_TIMER_INTERVAL)?;
 
     Ok(CloneHandle {
         pid,
@@ -422,7 +447,7 @@ pub struct CloneHandle<T> {
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn wait(mut self) -> StdResult<RunInfo<Option<T>>, Error> {
+    pub fn wait(mut self, _timeout: Option<u64>) -> StdResult<RunInfo<Option<T>>, Error> {
         let mut data = Vec::new();
         let _ = self.read_error_pipe
             .read_to_end(&mut data)
@@ -435,6 +460,7 @@ impl<T: DeserializeOwned> CloneHandle<T> {
         };
 
         loop {
+            println!("Loop");
             // Check if something killed us
             let mut status: libc::c_int = 0;
             match unsafe { libc::waitpid(self.pid, &mut status, 0) } {

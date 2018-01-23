@@ -7,6 +7,30 @@ pub enum ShareNet {
     Unshare,
 }
 
+/// Limits for memory/time
+/// Time limits are given in nanoseconds
+/// Memory in bytes
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub struct Limits {
+    wall_time: Option<u64>,
+}
+
+impl Limits {
+    pub fn new(wall_time: Option<u64>) -> Limits {
+        Limits { wall_time }
+    }
+
+    pub fn wall_time(&self) -> Option<u64> {
+        self.wall_time
+    }
+}
+
+impl Default for Limits {
+    fn default() -> Limits {
+        Limits::new(None)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Config {
     command: PathBuf,
@@ -16,6 +40,7 @@ pub struct Config {
     redirect_stdin: Option<PathBuf>,
     redirect_stdout: Option<PathBuf>,
     redirect_stderr: Option<PathBuf>,
+    limits: Limits,
 }
 
 impl Config {
@@ -27,6 +52,7 @@ impl Config {
         redirect_stdin: Option<PathBuf>,
         redirect_stdout: Option<PathBuf>,
         redirect_stderr: Option<PathBuf>,
+        limits: Limits,
     ) -> Config {
         Config {
             command,
@@ -36,6 +62,7 @@ impl Config {
             redirect_stdin,
             redirect_stdout,
             redirect_stderr,
+            limits,
         }
     }
 
@@ -74,5 +101,9 @@ impl Config {
         self.redirect_stderr
             .as_ref()
             .map(|path_buf| path_buf.as_path())
+    }
+
+    pub fn limits(&self) -> Limits {
+        self.limits
     }
 }
