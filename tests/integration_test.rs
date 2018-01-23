@@ -5,8 +5,8 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use ia_sandbox::run_info::RunInfoResult;
 use ia_sandbox::config::Limits;
+use ia_sandbox::run_info::RunInfoResult;
 
 #[macro_use]
 mod utils;
@@ -232,10 +232,7 @@ fn test_wall_time_limit_exceeded() {
                 .limits(Limits::new(Some(Duration::from_secs(4))))
                 .build_and_run()
                 .unwrap();
-            assert!(matches!(
-                    run_info.result(),
-                    &RunInfoResult::Success(_)
-            ));
+            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
         },
     );
 
@@ -249,10 +246,9 @@ fn test_wall_time_limit_exceeded() {
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
-                    run_info.result(),
-                    &RunInfoResult::WallTimeLimitExceeded
+                run_info.result(),
+                &RunInfoResult::WallTimeLimitExceeded
             ));
         },
     );
-
 }

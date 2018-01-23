@@ -51,9 +51,9 @@ pub enum FFIError {
         old_root: PathBuf,
         error: String,
     },
-    #[fail(display = "Could not set process to die when parent dies: {}", _0)] PrSetPDeathSigError(String),
-    #[fail(display = "Could not set interval timer alarm: {}", _0)]
-    SetITimerError(String),
+    #[fail(display = "Could not set process to die when parent dies: {}", _0)]
+    PrSetPDeathSigError(String),
+    #[fail(display = "Could not set interval timer alarm: {}", _0)] SetITimerError(String),
     #[fail(display = "Could not set process group id of {} to {}: {}", pid, pgid, error)]
     SetpgidError {
         pid: i32,

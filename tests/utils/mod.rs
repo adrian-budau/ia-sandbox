@@ -7,7 +7,7 @@ use std::process::Command;
 use tempdir;
 
 use ia_sandbox::{self, Result};
-use ia_sandbox::config::{Config, ShareNet, Limits};
+use ia_sandbox::config::{Config, Limits, ShareNet};
 use ia_sandbox::run_info::RunInfo;
 
 fn get_exec_libs<T>(file: T) -> Vec<PathBuf>

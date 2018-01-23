@@ -6,12 +6,12 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::iter;
 use std::marker::PhantomData;
+use std::mem;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::FromRawFd;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::result::Result as StdResult;
-use std::mem;
 use std::time::{Duration, Instant};
 
 use bincode;
@@ -85,14 +85,13 @@ pub fn set_sig_alarm_handler() -> Result<()> {
 
     let mut sigaction: libc::sigaction = unsafe { mem::uninitialized() };
     sigaction.sa_flags = libc::SA_SIGINFO;
-    sigaction.sa_sigaction = unsafe { mem::transmute::<_, libc::sighandler_t>(handler as extern "C" fn(_, _, _)) };
+    sigaction.sa_sigaction =
+        unsafe { mem::transmute::<_, libc::sighandler_t>(handler as extern "C" fn(_, _, _)) };
     let _ = unsafe { libc::sigemptyset(&mut sigaction.sa_mask) };
-    if unsafe {
-        libc::sigaction(libc::SIGALRM, &mut sigaction, ptr::null_mut())
-    } == -1 {
+    if unsafe { libc::sigaction(libc::SIGALRM, &mut sigaction, ptr::null_mut()) } == -1 {
         Err(FFIError::SigActionError {
             signal: "SIGALRM".into(),
-            error: last_error_string()
+            error: last_error_string(),
         })
     } else {
         Ok(())
@@ -102,7 +101,7 @@ pub fn set_sig_alarm_handler() -> Result<()> {
 pub fn set_alarm_interval(interval: i64) -> Result<()> {
     let timeval = libc::timeval {
         tv_sec: interval / 1_000_000,
-        tv_usec: interval % 1_000_000
+        tv_usec: interval % 1_000_000,
     };
 
     let itimerval = libc::itimerval {
@@ -112,7 +111,14 @@ pub fn set_alarm_interval(interval: i64) -> Result<()> {
 
     if unsafe {
         #[allow(trivial_casts)]
-        libc::syscall(libc::SYS_setitimer, libc::ITIMER_REAL, &itimerval as *const libc::itimerval, ptr::null() as *const libc::itimerval) } == -1 {
+        libc::syscall(
+            libc::SYS_setitimer,
+            libc::ITIMER_REAL,
+            &itimerval as *const libc::itimerval,
+            ptr::null() as *const libc::itimerval,
+        )
+    } == -1
+    {
         Err(FFIError::SetITimerError(last_error_string()))
     } else {
         Ok(())
