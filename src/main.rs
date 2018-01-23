@@ -5,6 +5,7 @@ extern crate clap;
 extern crate failure;
 extern crate ia_sandbox;
 
+use failure::Fail;
 use std::process;
 
 mod app;
@@ -24,7 +25,12 @@ fn main() {
             process::exit(0);
         }
         Err(err) => {
-            eprintln!("{}", err);
+            let mut fail: &Fail = err.cause();
+            eprintln!("{}", fail);
+            while let Some(cause) = fail.cause() {
+                eprintln!("{}", cause);
+                fail = cause;
+            }
             process::exit(1);
         }
     }

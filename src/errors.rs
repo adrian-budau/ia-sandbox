@@ -26,7 +26,7 @@ pub enum FFIError {
         path: PathBuf,
         error: String,
     },
-    #[fail(display = "Could not exec {:?}(arguments: {:?}): {}", command, arguments, error)]
+    #[fail(display = "Could not exec {:?} (arguments: {:?}): {}", command, arguments, error)]
     ExecError {
         command: PathBuf,
         arguments: Vec<OsString>,
@@ -51,6 +51,7 @@ pub enum FFIError {
         old_root: PathBuf,
         error: String,
     },
+    #[fail(display = "Could not set process to die when parent dies")] PrSetPDeathSigError(String),
     #[fail(display = "Could not set process group id of {} to {}: {}", pid, pgid, error)]
     SetpgidError {
         pid: i32,
@@ -82,6 +83,8 @@ pub enum Error {
     #[fail(display = "Could not deserialize process result")] DeserializeError(String),
     #[fail(display = "FFI Error occurred.")] FFIError(#[cause] FFIError),
     #[fail(display = "Child process stopped/continued unexpected")] StoppedContinuedError,
+    #[fail(display = "Supervisor process died and could not collect execution information")]
+    SupervisorProcessDiedError,
 }
 
 pub type Result<T> = StdResult<T, Error>;

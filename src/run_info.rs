@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RunInfoResult<T> {
     Success(T),
     NonZeroExitStatus(i32),
@@ -27,6 +27,13 @@ impl<T> RunInfoResult<T> {
             RunInfoResult::KilledBySignal(signal) => RunInfoResult::KilledBySignal(signal),
         })
     }
+
+    pub fn success(self) -> Option<T> {
+        match self {
+            RunInfoResult::Success(obj) => Some(obj),
+            _ => None,
+        }
+    }
 }
 
 impl<T> Display for RunInfoResult<T> {
@@ -41,7 +48,7 @@ impl<T> Display for RunInfoResult<T> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RunInfo<T> {
     result: RunInfoResult<T>,
 }
@@ -61,6 +68,10 @@ impl<T> RunInfo<T> {
 
     pub fn and_then<A, B, F: FnOnce(T) -> Result<A, B>>(self, cb: F) -> Result<RunInfo<A>, B> {
         self.result.and_then(cb).map(RunInfo::new)
+    }
+
+    pub fn success(self) -> Option<T> {
+        self.result.success()
     }
 }
 

@@ -9,7 +9,6 @@ use std::marker::PhantomData;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::FromRawFd;
 use std::path::{Path, PathBuf};
-use std::process;
 use std::ptr;
 use std::result::Result as StdResult;
 
@@ -18,7 +17,6 @@ use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_N
            CLONE_VFORK, SIGCHLD};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use simple_signal::{self, Signal};
 
 use config::ShareNet;
 use errors::{Error, FFIError};
@@ -29,10 +27,19 @@ type Result<T> = StdResult<T, FFIError>;
 const DEFAULT_STACK_SIZE: usize = 256 * 1024;
 const CLONE_NEWNET: libc::c_int = 0x40000000;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct UserId(libc::uid_t);
-#[derive(Debug, Eq, PartialEq)]
+
+impl UserId {
+    pub const ROOT: UserId = UserId(0);
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct GroupId(libc::gid_t);
+
+impl GroupId {
+    pub const ROOT: GroupId = GroupId(0);
+}
 
 pub fn get_user_group_id() -> (UserId, GroupId) {
     return unsafe { (UserId(libc::getuid()), GroupId(libc::getgid())) };
@@ -70,7 +77,7 @@ pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
     Ok(())
 }
 
-pub fn clone<F, T: Debug>(f: F, share_net: ShareNet) -> Result<CloneHandle<T>>
+pub fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
 where
     F: FnOnce() -> T + Send,
     T: Serialize,
@@ -108,30 +115,6 @@ where
         -1 => return Err(FFIError::CloneError(last_error_string())),
         x => x,
     };
-
-    // Start waiting for fatal stuff
-    let child_pid = pid;
-    simple_signal::set_handler(
-        &[
-            Signal::Abrt,
-            Signal::Fpe,
-            Signal::Alrm,
-            Signal::Hup,
-            Signal::Ill,
-            Signal::Int,
-            Signal::Pipe,
-            Signal::Quit,
-            Signal::Segv,
-            Signal::Term,
-        ],
-        move |_| {
-            unsafe {
-                let _ = libc::kill(-child_pid, libc::SIGKILL);
-                let _ = libc::kill(child_pid, libc::SIGKILL);
-            };
-            process::exit(1);
-        },
-    );
 
     Ok(CloneHandle {
         pid,
@@ -371,6 +354,14 @@ fn sys_pivot_root(new_root: &Path, old_root: &Path) -> Result<()> {
             })
         }
         _ => Ok(()),
+    }
+}
+
+pub fn kill_on_parent_death() -> Result<()> {
+    if unsafe { libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) } == -1 {
+        Err(FFIError::PrSetPDeathSigError(last_error_string()))
+    } else {
+        Ok(())
     }
 }
 
