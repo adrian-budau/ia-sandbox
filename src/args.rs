@@ -53,7 +53,7 @@ fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
 
 impl<'a> ArgMatches<'a> {
     fn to_config(&self) -> Result<Config> {
-        let limits = Limits::new(self.wall_time()?);
+        let limits = Limits::new(self.wall_time()?, self.user_time()?);
         Ok(Config::new(
             self.command()?,
             self.args(),
@@ -63,6 +63,8 @@ impl<'a> ArgMatches<'a> {
             self.redirect_stdout(),
             self.redirect_stderr(),
             limits,
+            self.instance_name(),
+            self.cpuacct_controller_path(),
         ))
     }
 
@@ -107,5 +109,21 @@ impl<'a> ArgMatches<'a> {
             flip_option_result(self.value_of("wall-time").map(|x| parse_duration(x)))
                 .context("Could not parse wall time")?,
         )
+    }
+
+    fn user_time(&self) -> Result<Option<Duration>> {
+        Ok(
+            flip_option_result(self.value_of("time").map(|x| parse_duration(x)))
+                .context("Could not parse time")?,
+        )
+    }
+
+    fn instance_name(&self) -> Option<OsString> {
+        self.value_of_os("instance-name")
+            .map(|os_str| os_str.to_os_string())
+    }
+
+    fn cpuacct_controller_path(&self) -> Option<PathBuf> {
+        self.value_of_os("cpuacct-path").map(PathBuf::from)
     }
 }

@@ -12,21 +12,29 @@ pub enum ShareNet {
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Limits {
     wall_time: Option<Duration>,
+    user_time: Option<Duration>,
 }
 
 impl Limits {
-    pub fn new(wall_time: Option<Duration>) -> Limits {
-        Limits { wall_time }
+    pub fn new(wall_time: Option<Duration>, user_time: Option<Duration>) -> Limits {
+        Limits {
+            wall_time,
+            user_time,
+        }
     }
 
     pub fn wall_time(&self) -> Option<Duration> {
         self.wall_time
     }
+
+    pub fn user_time(&self) -> Option<Duration> {
+        self.user_time
+    }
 }
 
 impl Default for Limits {
     fn default() -> Limits {
-        Limits::new(None)
+        Limits::new(None, None)
     }
 }
 
@@ -40,6 +48,8 @@ pub struct Config {
     redirect_stdout: Option<PathBuf>,
     redirect_stderr: Option<PathBuf>,
     limits: Limits,
+    instance_name: Option<OsString>,
+    cpuacct_controller_path: Option<PathBuf>,
 }
 
 impl Config {
@@ -52,6 +62,8 @@ impl Config {
         redirect_stdout: Option<PathBuf>,
         redirect_stderr: Option<PathBuf>,
         limits: Limits,
+        instance_name: Option<OsString>,
+        cpuacct_controller_path: Option<PathBuf>,
     ) -> Config {
         Config {
             command,
@@ -62,6 +74,8 @@ impl Config {
             redirect_stdout,
             redirect_stderr,
             limits,
+            instance_name,
+            cpuacct_controller_path,
         }
     }
 
@@ -102,7 +116,19 @@ impl Config {
             .map(|path_buf| path_buf.as_path())
     }
 
-    pub fn limits(&self) -> &Limits {
-        &self.limits
+    pub fn limits(&self) -> Limits {
+        self.limits
+    }
+
+    pub fn instance_name(&self) -> Option<&OsStr> {
+        self.instance_name
+            .as_ref()
+            .map(|os_string| os_string.as_os_str())
+    }
+
+    pub fn cpuacct_controller_path(&self) -> Option<&Path> {
+        self.cpuacct_controller_path
+            .as_ref()
+            .map(|path_buf| path_buf.as_path())
     }
 }

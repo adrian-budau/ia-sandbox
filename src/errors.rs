@@ -83,8 +83,68 @@ pub enum FFIError {
 }
 
 #[derive(Fail, Debug, Serialize, Deserialize)]
+pub enum CGroupError {
+    #[fail(display = "Cgroup controller missing: {:?}", _0)] ControllerMissing(PathBuf),
+    #[fail(display = "Could not create instance controller under {:?} for {:?}: {}",
+           controller_path, instance_name, error)]
+    InstanceControllerCreateError {
+        controller_path: PathBuf,
+        instance_name: OsString,
+        error: String,
+    },
+    #[fail(display = "Could not open {:?} for controller {:?}: {}", file, controller_path, error)]
+    OpenCGroupFileError {
+        controller_path: PathBuf,
+        file: PathBuf,
+        error: String,
+    },
+    #[fail(display = "Could not parse `{}` from {:?} for controller {:?}: {}", buffer, file,
+           controller_path, error)]
+    ParseCGroupFileError {
+        controller_path: PathBuf,
+        file: PathBuf,
+        buffer: String,
+        error: String,
+    },
+
+    #[fail(display = "Could not read from {:?} for controller {:?}: {}", file, controller_path,
+           error)]
+    ReadCGroupFileError {
+        controller_path: PathBuf,
+        file: PathBuf,
+        error: String,
+    },
+    #[fail(display = "Could not write to {:?} for controller {:?}: {}", file, controller_path,
+           error)]
+    WriteCGroupFileError {
+        controller_path: PathBuf,
+        file: PathBuf,
+        error: String,
+    },
+}
+
+#[derive(Fail, Debug, Serialize, Deserialize)]
+pub enum ChildError {
+    #[fail(display = "Cgroup error occurred.")] CGroupError(#[cause] CGroupError),
+    #[fail(display = "FFI Error occurred.")] FFIError(#[cause] FFIError),
+}
+
+impl From<CGroupError> for ChildError {
+    fn from(err: CGroupError) -> ChildError {
+        ChildError::CGroupError(err)
+    }
+}
+
+impl From<FFIError> for ChildError {
+    fn from(err: FFIError) -> ChildError {
+        ChildError::FFIError(err)
+    }
+}
+
+#[derive(Fail, Debug, Serialize, Deserialize)]
 pub enum Error {
-    #[fail(display = "Child process error occurred.")] ChildError(#[cause] FFIError),
+    #[fail(display = "Cgroup error occurred.")] CGroupError(#[cause] CGroupError),
+    #[fail(display = "Child process error occurred.")] ChildError(#[cause] ChildError),
     #[fail(display = "Child process successfully completed even though it used exec")]
     ContinuedPastExecError(String),
     #[fail(display = "Could not deserialize process result: {}", _0)] DeserializeError(String),
@@ -92,6 +152,24 @@ pub enum Error {
     #[fail(display = "Child process stopped/continued unexpected")] StoppedContinuedError,
     #[fail(display = "Supervisor process died and could not collect execution information")]
     SupervisorProcessDiedError,
+}
+
+impl From<CGroupError> for Error {
+    fn from(err: CGroupError) -> Error {
+        Error::CGroupError(err)
+    }
+}
+
+impl From<ChildError> for Error {
+    fn from(err: ChildError) -> Error {
+        Error::ChildError(err)
+    }
+}
+
+impl From<FFIError> for Error {
+    fn from(err: FFIError) -> Error {
+        Error::FFIError(err)
+    }
 }
 
 pub type Result<T> = StdResult<T, Error>;

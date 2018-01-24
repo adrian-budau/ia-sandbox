@@ -43,6 +43,15 @@ const SLEEP_2_SECOND: [(&'static str, &'static str); 1] = [
     ),
 ];
 
+const LOOP_500_MS: [(&'static str, &'static str); 1] =
+    [("./target/debug/examples/loop_500_ms", "/loop_500_ms")];
+
+const THREADS_LOOP_500_MS: [(&'static str, &'static str); 1] = [
+    (
+        "./target/debug/examples/threads_loop_500_ms",
+        "/threads_loop_500_ms",
+    ),
+];
 #[test]
 fn test_basic_sandbox() {
     utils::with_setup("test_basic_sandbox", HELLO_WORLD.iter(), |dir| {
@@ -61,7 +70,7 @@ fn test_exec_failed() {
         use ia_sandbox::errors::*;
         assert!(matches!(
             result,
-            Err(Error::ChildError(FFIError::ExecError { .. }))
+            Err(Error::ChildError(ChildError::FFIError(FFIError::ExecError { .. })))
         ));
     });
 }
@@ -229,7 +238,7 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(4))))
+                .limits(Limits::new(Some(Duration::from_secs(4)), None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -242,13 +251,88 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(1))))
+                .limits(Limits::new(Some(Duration::from_secs(1)), None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
                 run_info.result(),
                 &RunInfoResult::WallTimeLimitExceeded
             ));
+        },
+    );
+}
+
+#[test]
+fn test_time_limit_exceeded() {
+    utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
+        let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
+            .new_root(dir)
+            .limits(Limits::new(None, Some(Duration::from_secs(1))))
+            .build_and_run()
+            .unwrap();
+        assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
+    });
+
+    utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
+        let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
+            .new_root(dir)
+            .limits(Limits::new(None, Some(Duration::from_millis(250))))
+            .build_and_run()
+            .unwrap();
+        assert!(matches!(
+            run_info.result(),
+            &RunInfoResult::TimeLimitExceeded
+        ));
+    });
+}
+
+#[test]
+fn test_threads_time_limit_exceeded() {
+    utils::with_setup(
+        "test_threads_time_limit_exceeded",
+        THREADS_LOOP_500_MS[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
+                .new_root(dir)
+                .limits(Limits::new(None, Some(Duration::from_secs(1))))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
+        },
+    );
+
+    utils::with_setup(
+        "test_threads_time_limit_exceeded",
+        THREADS_LOOP_500_MS[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
+                .new_root(dir)
+                .limits(Limits::new(None, Some(Duration::from_millis(250))))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(
+                run_info.result(),
+                &RunInfoResult::TimeLimitExceeded
+            ));
+        },
+    );
+}
+
+#[test]
+fn test_threads_wall_time_limit_exceeded() {
+    utils::with_setup(
+        "test_threads_wall_time_limit_exceeded",
+        THREADS_LOOP_500_MS[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
+                .new_root(dir)
+                .limits(Limits::new(
+                    Some(Duration::from_millis(250)),
+                    Some(Duration::from_secs(1)),
+                ))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
         },
     );
 }

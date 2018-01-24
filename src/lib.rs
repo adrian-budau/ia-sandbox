@@ -1,6 +1,7 @@
 #![recursion_limit = "1024"]
 #![feature(fnbox)]
 #![feature(conservative_impl_trait)]
+#![feature(duration_extras)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![deny(missing_copy_implementations, missing_debug_implementations, trivial_casts,
@@ -19,10 +20,11 @@ pub mod errors;
 pub mod run_info;
 pub mod config;
 mod ffi;
+mod cgroups;
 
-use config::{Config, ShareNet};
+use config::{Config, Limits, ShareNet};
 pub use errors::*;
-use run_info::RunInfo;
+use run_info::{RunInfo, RunUsage};
 
 pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
     let user_group_id = ffi::get_user_group_id();
@@ -33,11 +35,11 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
     // If by any chance the supervisor process dies, by rules of pid namespaces
     // all its descendant processes will die as well
     ffi::clone(ShareNet::Share, || {
-        ffi::kill_on_parent_death().map_err(Error::FFIError)?;
+        ffi::kill_on_parent_death()?;
         // Mount proc just for security
-        ffi::mount_proc().map_err(Error::FFIError)?;
+        ffi::mount_proc()?;
         // Without setting uid/gid maps user is not seen so it can not do anything
-        ffi::set_uid_gid_maps(user_group_id).map_err(Error::FFIError)?;
+        ffi::set_uid_gid_maps(user_group_id)?;
 
         ffi::clone(config.share_net(), || {
             if let Some(stdin) = config.redirect_stdin() {
@@ -51,6 +53,12 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
             if let Some(stderr) = config.redirect_stderr() {
                 ffi::redirect_fd(ffi::STDERR, stderr)?;
             }
+
+            // Enter cgroup before we pivot root, then it is too late
+            cgroups::enter_cpuacct_cgroup(
+                config.cpuacct_controller_path(),
+                config.instance_name(),
+            )?;
 
             if let Some(new_root) = config.new_root() {
                 ffi::pivot_root(new_root, || {
@@ -74,17 +82,22 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
             // father by sending signals to the whole process group)
             ffi::move_to_different_process_group()?;
 
-            ffi::exec_command(config.command(), &config.args())
-        }).map_err(Error::FFIError)?
-            .wait(config.limits().wall_time())
+            ffi::exec_command(config.command(), &config.args())?;
+
+            Ok(())
+        })?.wait(config.limits(), || {
+            Ok(cgroups::get_usage(
+                config.cpuacct_controller_path(),
+                config.instance_name(),
+            )?)
+        })
             .and_then(|run_info| {
                 run_info.and_then(|option| match option {
                     None => Ok(()),
                     Some(result) => result.map_err(Error::ChildError),
                 })
             })
-    }).map_err(Error::FFIError)?
-        .wait(None)
+    })?.wait(Limits::default(), || Ok(RunUsage::default()))
         .and_then(|run_info| {
             run_info
                 .success() // we only care if supervisor process successfully finished

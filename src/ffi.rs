@@ -12,7 +12,7 @@ use std::os::unix::io::FromRawFd;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::result::Result as StdResult;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use bincode;
 use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
@@ -20,9 +20,9 @@ use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_N
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use config::ShareNet;
+use config::{Limits, ShareNet};
 use errors::{Error, FFIError};
-use run_info::{RunInfo, RunInfoResult};
+use run_info::{RunInfo, RunInfoResult, RunUsage};
 
 type Result<T> = StdResult<T, FFIError>;
 
@@ -44,9 +44,12 @@ impl GroupId {
 }
 
 pub fn get_user_group_id() -> (UserId, GroupId) {
-    return unsafe { (UserId(libc::getuid()), GroupId(libc::getgid())) };
+    unsafe { (UserId(libc::getuid()), GroupId(libc::getgid())) }
 }
 
+pub fn getpid() -> libc::c_int {
+    unsafe { libc::getpid() }
+}
 pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
     let uid_error = |_| FFIError::WriteUidError(last_error_string());
     let mut uid_map = OpenOptions::new()
@@ -126,7 +129,7 @@ pub fn set_alarm_interval(interval: i64) -> Result<()> {
 }
 
 /// how often SIGALRM should trigger (i microseconds)
-const ALARM_TIMER_INTERVAL: i64 = 50_000;
+const ALARM_TIMER_INTERVAL: i64 = 1_000;
 
 pub fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
 where
@@ -475,7 +478,11 @@ pub struct CloneHandle<T> {
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn wait(mut self, timeout: Option<Duration>) -> StdResult<RunInfo<Option<T>>, Error> {
+    pub fn wait<F: Fn() -> StdResult<RunUsage, Error>>(
+        mut self,
+        limits: Limits,
+        usage: F,
+    ) -> StdResult<RunInfo<Option<T>>, Error> {
         let timer = Instant::now();
         let mut data = Vec::new();
         let _ = self.read_error_pipe
@@ -489,10 +496,15 @@ impl<T: DeserializeOwned> CloneHandle<T> {
         };
 
         loop {
-            for &timeout in &timeout {
+            let usage = usage()?;
+            for timeout in limits.wall_time() {
                 if timer.elapsed() >= timeout {
-                    return Ok(RunInfo::new(RunInfoResult::WallTimeLimitExceeded));
+                    return Ok(RunInfo::new(RunInfoResult::WallTimeLimitExceeded, usage));
                 }
+            }
+
+            if let Some(run_info) = usage.check_limits(limits) {
+                return Ok(run_info);
             }
 
             // Check if something killed us
@@ -511,15 +523,18 @@ impl<T: DeserializeOwned> CloneHandle<T> {
                     if unsafe { libc::WIFEXITED(status) } {
                         let exit_code = unsafe { libc::WEXITSTATUS(status) };
                         if exit_code == 0 {
-                            return Ok(RunInfo::new(RunInfoResult::Success(result)));
+                            return Ok(RunInfo::new(RunInfoResult::Success(result), usage));
                         } else {
-                            return Ok(RunInfo::new(RunInfoResult::NonZeroExitStatus(exit_code)));
+                            return Ok(RunInfo::new(
+                                RunInfoResult::NonZeroExitStatus(exit_code),
+                                usage,
+                            ));
                         }
                     }
 
                     if unsafe { libc::WIFSIGNALED(status) } {
                         let signal = unsafe { libc::WTERMSIG(status) };
-                        return Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal)));
+                        return Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal), usage));
                     }
 
                     if unsafe { libc::WIFSTOPPED(status) || libc::WIFCONTINUED(status) } {

@@ -1,22 +1,22 @@
 use clap::{App, AppSettings, Arg};
 
 const ABOUT: &'static str = "
-ia-jail sandboxes applications for secure running of executables";
+ia-sandbox sandboxes applications for secure running of executables";
 
 const LONG_ABOUT: &'static str = "
-ia-jail sandboxes applications for secure running of executables
+ia-sandbox sandboxes applications for secure running of executables
 
-ia-jail uses cgroups, namespaces, pivot_root and other techniques to
+ia-sandbox uses cgroups, namespaces, pivot_root and other techniques to
 guarantee security. It is designed to be used for online judges and in
 particular infoarena.ro";
 
 const ARGS_AFTER_HELP: &'static str = "
 All of the trailing arguments are passed to the command to run. If you're passing
-arguments to both ia-jail and the binary, the ones after `--` go to the command,
-the ones before go to ia-jail.";
+arguments to both ia-sandbox and the binary, the ones after `--` go to the command,
+the ones before go to ia-sandbox.";
 
 pub fn app() -> App<'static, 'static> {
-    App::new("ia-jail")
+    App::new("ia-sandbox")
         .author(crate_authors!())
         .version(crate_version!())
         .about(ABOUT)
@@ -89,6 +89,43 @@ pub fn app() -> App<'static, 'static> {
                      many seconds (in real time) it is killed.\n\
                      Given as an unsigned number followed by one of the following\n\
                      suffixes ns(nanoseconds), ms(milliseconds) or s(seconds)",
+                ),
+        )
+        .arg(
+            Arg::with_name("time")
+                .long("time")
+                .short("t")
+                .takes_value(true)
+                .help("User time limit")
+                .long_help(
+                    "User time limit. If the executable uses more user time than\n\
+                     the amount given, it will be killed. Multiple threads running\n\
+                     at the same time will add up their user time.\n\
+                     Given as an unsigned number followed by one of the following\n\
+                     suffixes ns(nanoseconds), ms(milliseconds) or s(seconds)",
+                ),
+        )
+        .arg(
+            Arg::with_name("instance-name")
+                .long("instance-name")
+                .short("i")
+                .takes_value(true)
+                .help("Instance name for cgroups")
+                .long_help(
+                    "Instance name for cgroups. If you plan on running multiple\n\
+                     sandboxes at the same time, it is mandatory they be given\n\
+                     different instance name, otherwise their user times will\n\
+                     add up.",
+                ),
+        )
+        .arg(
+            Arg::with_name("cpuacct-controller")
+                .long("cpuacct-controller")
+                .takes_value(true)
+                .help("cpuacct contrroller path")
+                .long_help(
+                    "cpuacct controller path. Must have write permissions with the\n\
+                     user running the sandbox.",
                 ),
         )
 }
