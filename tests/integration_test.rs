@@ -327,7 +327,7 @@ fn test_threads_wall_time_limit_exceeded() {
             let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
                 .new_root(dir)
                 .limits(Limits::new(
-                    Some(Duration::from_millis(250)),
+                    Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                 ))
                 .build_and_run()

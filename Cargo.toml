@@ -6,7 +6,7 @@ authors = ["Adrian Budau <budau.adi@gmail.com>"]
 [dependencies]
 libc = "0.2"
 failure = "0.1.1"
-clap = "2.26"
+clap = "2.29"
 serde = "1.0"
 serde_derive = "1.0"
 bincode = "0.9"
