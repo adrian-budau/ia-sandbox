@@ -55,9 +55,10 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
             }
 
             // Enter cgroup before we pivot root, then it is too late
-            cgroups::enter_cpuacct_cgroup(
-                config.cpuacct_controller_path(),
+            cgroups::enter_all_cgroups(
+                config.controller_path(),
                 config.instance_name(),
+                config.limits(),
             )?;
 
             if let Some(new_root) = config.new_root() {
@@ -87,7 +88,7 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
             Ok(())
         })?.wait(config.limits(), || {
             Ok(cgroups::get_usage(
-                config.cpuacct_controller_path(),
+                config.controller_path(),
                 config.instance_name(),
             )?)
         })

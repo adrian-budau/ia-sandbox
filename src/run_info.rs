@@ -1,13 +1,14 @@
 use std::fmt::{self, Display, Formatter};
 use std::time::Duration;
 
-use config::Limits;
+use config::{Limits, SpaceUsage};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RunInfoResult<T> {
     Success(T),
     NonZeroExitStatus(i32),
     KilledBySignal(i32),
+    MemoryLimitExceeded,
     TimeLimitExceeded,
     WallTimeLimitExceeded,
 }
@@ -30,6 +31,7 @@ impl<T> RunInfoResult<T> {
                 RunInfoResult::NonZeroExitStatus(exit_status)
             }
             RunInfoResult::KilledBySignal(signal) => RunInfoResult::KilledBySignal(signal),
+            RunInfoResult::MemoryLimitExceeded => RunInfoResult::MemoryLimitExceeded,
             RunInfoResult::TimeLimitExceeded => RunInfoResult::TimeLimitExceeded,
             RunInfoResult::WallTimeLimitExceeded => RunInfoResult::WallTimeLimitExceeded,
         })
@@ -51,6 +53,7 @@ impl<T> Display for RunInfoResult<T> {
                 write!(f, "Non zero exit status: {}", exit_code)
             }
             &RunInfoResult::KilledBySignal(ref signal) => write!(f, "Killed by Signal {}", signal),
+            &RunInfoResult::MemoryLimitExceeded => write!(f, "Memory limit exceeded"),
             &RunInfoResult::TimeLimitExceeded => write!(f, "Time limit exceeded"),
             &RunInfoResult::WallTimeLimitExceeded => write!(f, "Wall time limit exceeded"),
         }
@@ -60,15 +63,20 @@ impl<T> Display for RunInfoResult<T> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RunUsage {
     user_time: Duration,
+    memory: SpaceUsage,
 }
 
 impl RunUsage {
-    pub fn new(user_time: Duration) -> RunUsage {
-        RunUsage { user_time }
+    pub fn new(user_time: Duration, memory: SpaceUsage) -> RunUsage {
+        RunUsage { user_time, memory }
     }
 
     pub fn user_time(&self) -> Duration {
         self.user_time
+    }
+
+    pub fn memory(&self) -> SpaceUsage {
+        self.memory
     }
 
     pub fn check_limits<T>(self, limits: Limits) -> Option<RunInfo<T>> {
@@ -77,27 +85,36 @@ impl RunUsage {
             .map(|time| time < self.user_time())
             .unwrap_or(false)
         {
-            Some(RunInfo::new(RunInfoResult::TimeLimitExceeded, self))
-        } else {
-            None
+            return Some(RunInfo::new(RunInfoResult::TimeLimitExceeded, self));
         }
+
+        if limits
+            .memory()
+            .map(|memory| memory < self.memory())
+            .unwrap_or(false)
+        {
+            return Some(RunInfo::new(RunInfoResult::MemoryLimitExceeded, self));
+        }
+
+        None
     }
 }
 
 impl Default for RunUsage {
     fn default() -> RunUsage {
-        RunUsage::new(Duration::from_secs(0))
+        RunUsage::new(Duration::from_secs(0), SpaceUsage::from_bytes(0))
     }
 }
 
 impl Display for RunUsage {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
             "Total user time: {}",
             self.user_time().as_secs() as f64
                 + (self.user_time().subsec_nanos() as f64) / 1_000_000_000.
-        )
+        )?;
+        write!(f, "Total memory: {}", self.memory())
     }
 }
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

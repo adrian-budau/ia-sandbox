@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use ia_sandbox::config::Limits;
+use ia_sandbox::config::{Limits, SpaceUsage};
 use ia_sandbox::run_info::RunInfoResult;
 
 #[macro_use]
@@ -13,45 +13,60 @@ mod utils;
 use utils::ConfigBuilder;
 
 const HELLO_WORLD: [(&'static str, &'static str); 1] =
-    [("./target/debug/examples/hello_world", "/hello_world")];
+    [("./target/release/hello_world", "/hello_world")];
 
 const EXIT_WITH_INPUT: [(&'static str, &'static str); 1] = [
     (
-        "./target/debug/examples/exit_with_input",
+        "./target/release/exit_with_input",
         "/exit_with_input",
     ),
 ];
 
 const EXIT_WITH_LAST_ARGUMENT: [(&'static str, &'static str); 1] = [
     (
-        "./target/debug/examples/exit_with_last_argument",
+        "./target/release/exit_with_last_argument",
         "/exit_with_last_argument",
     ),
 ];
 
 const KILL_WITH_SIGNAL_ARG: [(&'static str, &'static str); 1] = [
     (
-        "./target/debug/examples/kill_with_signal_arg",
+        "./target/debug/kill_with_signal_arg",
         "/kill_with_signal_arg",
     ),
 ];
 
 const SLEEP_2_SECOND: [(&'static str, &'static str); 1] = [
     (
-        "./target/debug/examples/sleep_2_seconds",
+        "./target/release/sleep_2_seconds",
         "/sleep_2_seconds",
     ),
 ];
 
 const LOOP_500_MS: [(&'static str, &'static str); 1] =
-    [("./target/debug/examples/loop_500_ms", "/loop_500_ms")];
+    [("./target/release/loop_500_ms", "/loop_500_ms")];
 
 const THREADS_LOOP_500_MS: [(&'static str, &'static str); 1] = [
     (
-        "./target/debug/examples/threads_loop_500_ms",
+        "./target/release/threads_loop_500_ms",
         "/threads_loop_500_ms",
     ),
 ];
+
+const ALLOCATE_20_MEGABYTES: [(&'static str, &'static str); 1] = [
+    (
+        "./target/release/allocate_20_megabytes",
+        "/allocate_20_megabytes",
+    ),
+];
+
+const THREADS_ALLOCATE_20_MEGABYTES: [(&'static str, &'static str); 1] = [
+    (
+        "./target/release/threads_allocate_20_megabytes",
+        "/threads_allocate_20_megabytes",
+    ),
+];
+
 #[test]
 fn test_basic_sandbox() {
     utils::with_setup("test_basic_sandbox", HELLO_WORLD.iter(), |dir| {
@@ -205,7 +220,6 @@ fn test_killed_by_signal() {
                 .arg("8")
                 .build_and_run()
                 .unwrap();
-            println!("{}", run_info);
             assert!(matches!(
                 run_info.result(),
                 &RunInfoResult::KilledBySignal(8)
@@ -238,7 +252,7 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(4)), None))
+                .limits(Limits::new(Some(Duration::from_secs(4)), None, None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -251,7 +265,7 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(1)), None))
+                .limits(Limits::new(Some(Duration::from_secs(1)), None, None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
@@ -267,7 +281,7 @@ fn test_time_limit_exceeded() {
     utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
             .new_root(dir)
-            .limits(Limits::new(None, Some(Duration::from_secs(1))))
+            .limits(Limits::new(None, Some(Duration::from_secs(1)), None))
             .build_and_run()
             .unwrap();
         assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -276,7 +290,7 @@ fn test_time_limit_exceeded() {
     utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
             .new_root(dir)
-            .limits(Limits::new(None, Some(Duration::from_millis(250))))
+            .limits(Limits::new(None, Some(Duration::from_millis(250)), None))
             .build_and_run()
             .unwrap();
         assert!(matches!(
@@ -294,7 +308,7 @@ fn test_threads_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
                 .new_root(dir)
-                .limits(Limits::new(None, Some(Duration::from_secs(1))))
+                .limits(Limits::new(None, Some(Duration::from_secs(1)), None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -307,7 +321,7 @@ fn test_threads_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
                 .new_root(dir)
-                .limits(Limits::new(None, Some(Duration::from_millis(250))))
+                .limits(Limits::new(None, Some(Duration::from_millis(250)), None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
@@ -329,10 +343,91 @@ fn test_threads_wall_time_limit_exceeded() {
                 .limits(Limits::new(
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
+        },
+    );
+}
+
+#[test]
+fn test_memory_limit_exceeded() {
+    utils::with_setup(
+        "test_memory_limit_exceeded",
+        ALLOCATE_20_MEGABYTES[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(ALLOCATE_20_MEGABYTES[0].1)
+                .new_root(dir)
+                .limits(Limits::new(
+                    None,
+                    None,
+                    Some(SpaceUsage::from_megabytes(30)),
+                ))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
+        },
+    );
+
+    utils::with_setup(
+        "test_memory_limit_exceeded",
+        ALLOCATE_20_MEGABYTES[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(ALLOCATE_20_MEGABYTES[0].1)
+                .new_root(dir)
+                .limits(Limits::new(
+                    None,
+                    None,
+                    Some(SpaceUsage::from_megabytes(18)),
+                ))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(
+                run_info.result(),
+                &RunInfoResult::MemoryLimitExceeded
+            ));
+        },
+    );
+}
+
+#[test]
+fn test_threads_memory_limit_exceeded() {
+    utils::with_setup(
+        "test_threads_memory_limit_exceeded",
+        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
+                .new_root(dir)
+                .limits(Limits::new(
+                    None,
+                    None,
+                    Some(SpaceUsage::from_megabytes(40)),
+                ))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
+        },
+    );
+
+    utils::with_setup(
+        "test_threads_memory_limit_exceeded",
+        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
+                .new_root(dir)
+                .limits(Limits::new(
+                    None,
+                    None,
+                    Some(SpaceUsage::from_megabytes(18)),
+                ))
+                .build_and_run()
+                .unwrap();
+            assert!(matches!(
+                run_info.result(),
+                &RunInfoResult::MemoryLimitExceeded
+            ));
         },
     );
 }

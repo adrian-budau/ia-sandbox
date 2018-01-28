@@ -160,7 +160,7 @@ impl ConfigBuilder {
             self.redirect_stderr.clone(),
             self.limits.unwrap_or(Default::default()),
             Some(OsString::from("test")),
-            None,
+            Default::default(),
         );
 
         ia_sandbox::run_jail(config)

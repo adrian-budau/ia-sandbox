@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::result;
 use std::time::Duration;
 
-use ia_sandbox::config::{Config, Limits, ShareNet};
+use ia_sandbox::config::{Config, ControllerPath, Limits, ShareNet, SpaceUsage};
 
 use app;
 use clap;
@@ -43,6 +43,28 @@ fn parse_duration(string: &str) -> Result<Duration> {
     }
 }
 
+fn parse_space_usage(string: &str) -> Result<SpaceUsage> {
+    let number_index = string.find(|c: char| !c.is_digit(10)).ok_or(format_err!(
+        "Could not find duration suffix (b/kb/mb/gb/kib/mib/gib): {}",
+        string
+    ))?;
+
+    let (number, suffix) = string.split_at(number_index);
+    let number = number
+        .parse::<u64>()
+        .context(format_err!("Could not parse number {}", number))?;
+    match suffix {
+        "b" => Ok(SpaceUsage::from_bytes(number)),
+        "kb" => Ok(SpaceUsage::from_kilobytes(number)),
+        "mb" => Ok(SpaceUsage::from_megabytes(number)),
+        "gb" => Ok(SpaceUsage::from_gigabytes(number)),
+        "kib" => Ok(SpaceUsage::from_kibibytes(number)),
+        "mib" => Ok(SpaceUsage::from_mebibytes(number)),
+        "gib" => Ok(SpaceUsage::from_gibibytes(number)),
+        suffix => Err(format_err!("Unrecognized suffix: {}", suffix).into()),
+    }
+}
+
 fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
     match arg {
         None => Ok(None),
@@ -53,7 +75,12 @@ fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
 
 impl<'a> ArgMatches<'a> {
     fn to_config(&self) -> Result<Config> {
-        let limits = Limits::new(self.wall_time()?, self.user_time()?);
+        let limits = Limits::new(self.wall_time()?, self.user_time()?, self.memory()?);
+        let controller_path = ControllerPath::new(
+            self.cpuacct_controller_path(),
+            self.memory_controller_path(),
+        );
+
         Ok(Config::new(
             self.command()?,
             self.args(),
@@ -64,7 +91,7 @@ impl<'a> ArgMatches<'a> {
             self.redirect_stderr(),
             limits,
             self.instance_name(),
-            self.cpuacct_controller_path(),
+            controller_path,
         ))
     }
 
@@ -118,6 +145,13 @@ impl<'a> ArgMatches<'a> {
         )
     }
 
+    fn memory(&self) -> Result<Option<SpaceUsage>> {
+        Ok(
+            flip_option_result(self.value_of("memory").map(|x| parse_space_usage(x)))
+                .context("Could not parse memory")?,
+        )
+    }
+
     fn instance_name(&self) -> Option<OsString> {
         self.value_of_os("instance-name")
             .map(|os_str| os_str.to_os_string())
@@ -125,5 +159,9 @@ impl<'a> ArgMatches<'a> {
 
     fn cpuacct_controller_path(&self) -> Option<PathBuf> {
         self.value_of_os("cpuacct-path").map(PathBuf::from)
+    }
+
+    fn memory_controller_path(&self) -> Option<PathBuf> {
+        self.value_of_os("memory-path").map(PathBuf::from)
     }
 }

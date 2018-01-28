@@ -26,11 +26,14 @@ addons:
 before_install:
   - sudo apt-get update
   - sudo mkdir /sys/fs/cgroup/cpuacct/ia-sandbox
+  - sudo mkdir /sys/fs/cgroup/memory/ia-sandbox
   - sudo chown -R $(id -u):$(id -g) /sys/fs/cgroup/cpuacct/ia-sandbox
+  - sudo chown -R $(id -u):$(id -g) /sys/fs/cgroup/memory/ia-sandbox
 
 script:
-  - cargo build --all-targets
-  - cargo test
+  - cargo build --all-targets --features "integration-test"
+  - cargo build --release --bins --features "integration-test"
+  - cargo test -- --test-threads 1
 
  # Coverage report
 after_success:

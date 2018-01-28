@@ -102,7 +102,19 @@ pub fn app() -> App<'static, 'static> {
                      the amount given, it will be killed. Multiple threads running\n\
                      at the same time will add up their user time.\n\
                      Given as an unsigned number followed by one of the following\n\
-                     suffixes ns(nanoseconds), ms(milliseconds) or s(seconds)",
+                     suffixes: ns(nanoseconds), ms(milliseconds) or s(seconds)",
+                ),
+        )
+        .arg(
+            Arg::with_name("memory")
+                .long("memory")
+                .short("m")
+                .takes_value(true)
+                .help("Memory limit")
+                .long_help(
+                    "Memory limit. The maximum amount of memory (heap, data, swap) this\n\
+                     program is allowed to use. Given as an unsigned number followed by\n\
+                     one of usual suffixes b, kb, mb, gb, kib, mib, gib.",
                 ),
         )
         .arg(
@@ -125,6 +137,16 @@ pub fn app() -> App<'static, 'static> {
                 .help("cpuacct contrroller path")
                 .long_help(
                     "cpuacct controller path. Must have write permissions with the\n\
+                     user running the sandbox.",
+                ),
+        )
+        .arg(
+            Arg::with_name("memory-controller")
+                .long("memory-controller")
+                .takes_value(true)
+                .help("memory contrroller path")
+                .long_help(
+                    "memory controller path. Must have write permissions with the\n\
                      user running the sandbox.",
                 ),
         )
