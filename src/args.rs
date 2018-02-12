@@ -75,10 +75,16 @@ fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
 
 impl<'a> ArgMatches<'a> {
     fn to_config(&self) -> Result<Config> {
-        let limits = Limits::new(self.wall_time()?, self.user_time()?, self.memory()?);
+        let limits = Limits::new(
+            self.wall_time()?,
+            self.user_time()?,
+            self.memory()?,
+            self.pids()?,
+        );
         let controller_path = ControllerPath::new(
             self.cpuacct_controller_path(),
             self.memory_controller_path(),
+            self.pids_controller_path(),
         );
 
         Ok(Config::new(
@@ -152,6 +158,13 @@ impl<'a> ArgMatches<'a> {
         )
     }
 
+    fn pids(&self) -> Result<Option<usize>> {
+        flip_option_result(
+            self.value_of("pids")
+                .map(|x| Ok(x.parse::<usize>().context("Could not parse pids")?)),
+        )
+    }
+
     fn instance_name(&self) -> Option<OsString> {
         self.value_of_os("instance-name")
             .map(|os_str| os_str.to_os_string())
@@ -163,5 +176,9 @@ impl<'a> ArgMatches<'a> {
 
     fn memory_controller_path(&self) -> Option<PathBuf> {
         self.value_of_os("memory-path").map(PathBuf::from)
+    }
+
+    fn pids_controller_path(&self) -> Option<PathBuf> {
+        self.value_of_os("pids-path").map(PathBuf::from)
     }
 }

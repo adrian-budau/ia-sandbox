@@ -52,7 +52,7 @@ pub fn app() -> App<'static, 'static> {
                 .long("share-net")
                 .help("Whether to share the net namespace or not")
                 .long_help(
-                    "Whether to share the net namespae or not. Not sharing\n\
+                    "Whether to share the net namespace or not. Not sharing\n\
                      is more secure but it is also slow on multiple\n\
                      successive runs (Linux Kernel Bug).",
                 ),
@@ -118,6 +118,17 @@ pub fn app() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("pids")
+                .long("pids")
+                .short("p")
+                .takes_value(true)
+                .help("Number of pids limit")
+                .long_help(
+                    "Number of pids limit. The maximum amount of tasks (processes / threads)\n\
+                     this program is allowed to create (count includes the program itself).",
+                ),
+        )
+        .arg(
             Arg::with_name("instance-name")
                 .long("instance-name")
                 .short("i")
@@ -147,6 +158,16 @@ pub fn app() -> App<'static, 'static> {
                 .help("memory contrroller path")
                 .long_help(
                     "memory controller path. Must have write permissions with the\n\
+                     user running the sandbox.",
+                ),
+        )
+        .arg(
+            Arg::with_name("pids-controller")
+                .long("pids-controller")
+                .takes_value(true)
+                .help("pids controller path")
+                .long_help(
+                    "pids controller path. Must have write permissions with then\n\
                      user running the sandbox.",
                 ),
         )

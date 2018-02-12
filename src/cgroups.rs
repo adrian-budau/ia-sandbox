@@ -144,13 +144,34 @@ pub fn enter_memory_cgroup(
     enter_cgroup(&instance_path)
 }
 
+const PIDS_DEFAULT_CONTROLLER_PATH: &'static str = "/sys/fs/cgroup/pids/ia-sandbox";
+pub fn enter_pids_cgroup(
+    controller_path: Option<&Path>,
+    instance_name: Option<&OsStr>,
+    pids_limit: Option<usize>,
+) -> Result<()> {
+    let instance_path = get_instance_path(
+        controller_path.unwrap_or(Path::new(PIDS_DEFAULT_CONTROLLER_PATH)),
+        instance_name,
+    )?;
+
+    if let Some(pids_limit) = pids_limit {
+        cgroup_write(&instance_path, "pids.max", format!("{}\n", pids_limit))?;
+    } else {
+        cgroup_write(&instance_path, "pids.max", "max\n")?;
+    }
+
+    enter_cgroup(&instance_path)
+}
+
 pub fn enter_all_cgroups(
     controller_path: &ControllerPath,
     instance_name: Option<&OsStr>,
     limits: Limits,
 ) -> Result<()> {
     enter_cpuacct_cgroup(controller_path.cpuacct(), instance_name)?;
-    enter_memory_cgroup(controller_path.memory(), instance_name, limits.memory())
+    enter_memory_cgroup(controller_path.memory(), instance_name, limits.memory())?;
+    enter_pids_cgroup(controller_path.pids(), instance_name, limits.pids())
 }
 
 pub fn get_usage(

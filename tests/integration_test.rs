@@ -15,12 +15,8 @@ use utils::ConfigBuilder;
 const HELLO_WORLD: [(&'static str, &'static str); 1] =
     [("./target/release/hello_world", "/hello_world")];
 
-const EXIT_WITH_INPUT: [(&'static str, &'static str); 1] = [
-    (
-        "./target/release/exit_with_input",
-        "/exit_with_input",
-    ),
-];
+const EXIT_WITH_INPUT: [(&'static str, &'static str); 1] =
+    [("./target/release/exit_with_input", "/exit_with_input")];
 
 const EXIT_WITH_LAST_ARGUMENT: [(&'static str, &'static str); 1] = [
     (
@@ -36,12 +32,8 @@ const KILL_WITH_SIGNAL_ARG: [(&'static str, &'static str); 1] = [
     ),
 ];
 
-const SLEEP_2_SECOND: [(&'static str, &'static str); 1] = [
-    (
-        "./target/release/sleep_2_seconds",
-        "/sleep_2_seconds",
-    ),
-];
+const SLEEP_2_SECOND: [(&'static str, &'static str); 1] =
+    [("./target/release/sleep_2_seconds", "/sleep_2_seconds")];
 
 const LOOP_500_MS: [(&'static str, &'static str); 1] =
     [("./target/release/loop_500_ms", "/loop_500_ms")];
@@ -252,7 +244,7 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(4)), None, None))
+                .limits(Limits::new(Some(Duration::from_secs(4)), None, None, None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -265,7 +257,7 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(1)), None, None))
+                .limits(Limits::new(Some(Duration::from_secs(1)), None, None, None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
@@ -281,7 +273,7 @@ fn test_time_limit_exceeded() {
     utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
             .new_root(dir)
-            .limits(Limits::new(None, Some(Duration::from_secs(1)), None))
+            .limits(Limits::new(None, Some(Duration::from_secs(1)), None, None))
             .build_and_run()
             .unwrap();
         assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -290,7 +282,12 @@ fn test_time_limit_exceeded() {
     utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
             .new_root(dir)
-            .limits(Limits::new(None, Some(Duration::from_millis(250)), None))
+            .limits(Limits::new(
+                None,
+                Some(Duration::from_millis(250)),
+                None,
+                None,
+            ))
             .build_and_run()
             .unwrap();
         assert!(matches!(
@@ -308,7 +305,7 @@ fn test_threads_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
                 .new_root(dir)
-                .limits(Limits::new(None, Some(Duration::from_secs(1)), None))
+                .limits(Limits::new(None, Some(Duration::from_secs(1)), None, None))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -321,7 +318,12 @@ fn test_threads_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
                 .new_root(dir)
-                .limits(Limits::new(None, Some(Duration::from_millis(250)), None))
+                .limits(Limits::new(
+                    None,
+                    Some(Duration::from_millis(250)),
+                    None,
+                    None,
+                ))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
@@ -344,6 +346,7 @@ fn test_threads_wall_time_limit_exceeded() {
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                     None,
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
@@ -364,6 +367,7 @@ fn test_memory_limit_exceeded() {
                     None,
                     None,
                     Some(SpaceUsage::from_megabytes(30)),
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
@@ -381,6 +385,7 @@ fn test_memory_limit_exceeded() {
                     None,
                     None,
                     Some(SpaceUsage::from_megabytes(18)),
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
@@ -404,6 +409,7 @@ fn test_threads_memory_limit_exceeded() {
                     None,
                     None,
                     Some(SpaceUsage::from_megabytes(40)),
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
@@ -421,12 +427,47 @@ fn test_threads_memory_limit_exceeded() {
                     None,
                     None,
                     Some(SpaceUsage::from_megabytes(18)),
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
                 run_info.result(),
                 &RunInfoResult::MemoryLimitExceeded
+            ));
+        },
+    );
+}
+
+#[test]
+fn test_pids_limit_exceeded() {
+    utils::with_setup(
+        "test_pids_limit",
+        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
+                .new_root(dir)
+                .limits(Limits::new(None, None, None, Some(5)))
+                .build_and_run()
+                .unwrap();
+            println!("{}", run_info);
+            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
+        },
+    );
+
+    utils::with_setup(
+        "test_pids_limit",
+        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
+        |dir| {
+            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
+                .new_root(dir)
+                .limits(Limits::new(None, None, None, Some(4)))
+                .build_and_run()
+                .unwrap();
+            println!("{}", run_info);
+            assert!(matches!(
+                run_info.result(),
+                &RunInfoResult::NonZeroExitStatus(_)
             ));
         },
     );

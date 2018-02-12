@@ -72,6 +72,7 @@ pub struct Limits {
     wall_time: Option<Duration>,
     user_time: Option<Duration>,
     memory: Option<SpaceUsage>,
+    pids: Option<usize>,
 }
 
 impl Limits {
@@ -79,11 +80,13 @@ impl Limits {
         wall_time: Option<Duration>,
         user_time: Option<Duration>,
         memory: Option<SpaceUsage>,
+        pids: Option<usize>,
     ) -> Limits {
         Limits {
             wall_time,
             user_time,
             memory,
+            pids,
         }
     }
 
@@ -98,11 +101,15 @@ impl Limits {
     pub fn memory(&self) -> Option<SpaceUsage> {
         self.memory
     }
+
+    pub fn pids(&self) -> Option<usize> {
+        self.pids
+    }
 }
 
 impl Default for Limits {
     fn default() -> Limits {
-        Limits::new(None, None, None)
+        Limits::new(None, None, None, None)
     }
 }
 
@@ -110,11 +117,20 @@ impl Default for Limits {
 pub struct ControllerPath {
     cpuacct: Option<PathBuf>,
     memory: Option<PathBuf>,
+    pids: Option<PathBuf>,
 }
 
 impl ControllerPath {
-    pub fn new(cpuacct: Option<PathBuf>, memory: Option<PathBuf>) -> ControllerPath {
-        ControllerPath { cpuacct, memory }
+    pub fn new(
+        cpuacct: Option<PathBuf>,
+        memory: Option<PathBuf>,
+        pids: Option<PathBuf>,
+    ) -> ControllerPath {
+        ControllerPath {
+            cpuacct,
+            memory,
+            pids,
+        }
     }
 
     pub fn cpuacct(&self) -> Option<&Path> {
@@ -124,11 +140,15 @@ impl ControllerPath {
     pub fn memory(&self) -> Option<&Path> {
         self.memory.as_ref().map(|path_buf| path_buf.as_path())
     }
+
+    pub fn pids(&self) -> Option<&Path> {
+        self.pids.as_ref().map(|path_buf| path_buf.as_path())
+    }
 }
 
 impl Default for ControllerPath {
     fn default() -> ControllerPath {
-        ControllerPath::new(None, None)
+        ControllerPath::new(None, None, None)
     }
 }
 
