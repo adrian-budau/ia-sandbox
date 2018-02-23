@@ -114,7 +114,19 @@ pub fn app() -> App<'static, 'static> {
                 .long_help(
                     "Memory limit. The maximum amount of memory (heap, data, swap) this\n\
                      program is allowed to use. Given as an unsigned number followed by\n\
-                     one of usual suffixes b, kb, mb, gb, kib, mib, gib.",
+                     one of the usual suffixes b, kb, mb, gb, kib, mib, gib.",
+                ),
+        )
+        .arg(
+            Arg::with_name("stack")
+                .long("stack")
+                .short("s")
+                .takes_value(true)
+                .help("Stack memory limit")
+                .long_help(
+                    "Stack memory limit. The maxim amount of memory this program is allowed\n\
+                     tu use as stack. Given as an unsigned number followed by\n\
+                     one of the usual suffixes b, kb, mb, gb, kib, mib, gib.",
                 ),
         )
         .arg(

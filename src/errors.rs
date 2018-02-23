@@ -60,6 +60,7 @@ pub enum FFIError {
         pgid: i32,
         error: String,
     },
+    #[fail(display = "Could not set resource limit: {}", _0)] SetRLimitError(String),
     #[fail(display = "Could not set a signal handler for {}: {}", signal, error)]
     SigActionError {
         signal: String,

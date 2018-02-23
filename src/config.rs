@@ -72,6 +72,7 @@ pub struct Limits {
     wall_time: Option<Duration>,
     user_time: Option<Duration>,
     memory: Option<SpaceUsage>,
+    stack: Option<SpaceUsage>,
     pids: Option<usize>,
 }
 
@@ -80,12 +81,14 @@ impl Limits {
         wall_time: Option<Duration>,
         user_time: Option<Duration>,
         memory: Option<SpaceUsage>,
+        stack: Option<SpaceUsage>,
         pids: Option<usize>,
     ) -> Limits {
         Limits {
             wall_time,
             user_time,
             memory,
+            stack,
             pids,
         }
     }
@@ -102,6 +105,10 @@ impl Limits {
         self.memory
     }
 
+    pub fn stack(&self) -> Option<SpaceUsage> {
+        self.stack
+    }
+
     pub fn pids(&self) -> Option<usize> {
         self.pids
     }
@@ -109,7 +116,7 @@ impl Limits {
 
 impl Default for Limits {
     fn default() -> Limits {
-        Limits::new(None, None, None, None)
+        Limits::new(None, None, None, None, None)
     }
 }
 

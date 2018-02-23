@@ -79,6 +79,7 @@ impl<'a> ArgMatches<'a> {
             self.wall_time()?,
             self.user_time()?,
             self.memory()?,
+            self.stack()?,
             self.pids()?,
         );
         let controller_path = ControllerPath::new(
@@ -155,6 +156,13 @@ impl<'a> ArgMatches<'a> {
         Ok(
             flip_option_result(self.value_of("memory").map(|x| parse_space_usage(x)))
                 .context("Could not parse memory")?,
+        )
+    }
+
+    fn stack(&self) -> Result<Option<SpaceUsage>> {
+        Ok(
+            flip_option_result(self.value_of("stack").map(|x| parse_space_usage(x)))
+                .context("Could not parse stack")?,
         )
     }
 

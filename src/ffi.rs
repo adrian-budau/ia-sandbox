@@ -20,7 +20,7 @@ use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_N
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use config::{Limits, ShareNet};
+use config::{Limits, ShareNet, SpaceUsage};
 use errors::{Error, FFIError};
 use run_info::{RunInfo, RunInfoResult, RunUsage};
 
@@ -177,6 +177,28 @@ where
         read_error_pipe,
         phantom: PhantomData,
     })
+}
+
+pub fn remount_private() -> Result<()> {
+    let root = os_str_to_c_string("/");
+    let res = unsafe {
+        libc::mount(
+            ptr::null_mut(),
+            root.as_ptr(),
+            ptr::null_mut(),
+            libc::MS_REC | libc::MS_PRIVATE,
+            ptr::null_mut(),
+        )
+    };
+
+    if res == -1 {
+        Err(FFIError::MountError {
+            path: PathBuf::from("/"),
+            error: last_error_string(),
+        })
+    } else {
+        Ok(())
+    }
 }
 
 const OLD_ROOT_NAME: &'static str = ".old_root";
@@ -416,6 +438,26 @@ fn sys_pivot_root(new_root: &Path, old_root: &Path) -> Result<()> {
 pub fn kill_on_parent_death() -> Result<()> {
     if unsafe { libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) } == -1 {
         Err(FFIError::PrSetPDeathSigError(last_error_string()))
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_stack_limit(stack: Option<SpaceUsage>) -> Result<()> {
+    let mut rlimit: libc::rlimit = unsafe { mem::uninitialized() };
+    match stack {
+        Some(usage) => {
+            rlimit.rlim_cur = usage.as_bytes();
+            rlimit.rlim_max = usage.as_bytes();
+        }
+        None => {
+            rlimit.rlim_cur = libc::RLIM_INFINITY;
+            rlimit.rlim_max = libc::RLIM_INFINITY;
+        }
+    }
+
+    if unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlimit) } == -1 {
+        Err(FFIError::SetRLimitError(last_error_string()))
     } else {
         Ok(())
     }

@@ -54,12 +54,16 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
                 ffi::redirect_fd(ffi::STDERR, stderr)?;
             }
 
+            ffi::set_stack_limit(config.limits().stack())?;
             // Enter cgroup before we pivot root, then it is too late
             cgroups::enter_all_cgroups(
                 config.controller_path(),
                 config.instance_name(),
                 config.limits(),
             )?;
+
+            // Remount everything privately
+            ffi::remount_private()?;
 
             if let Some(new_root) = config.new_root() {
                 ffi::pivot_root(new_root, || {

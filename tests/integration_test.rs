@@ -244,7 +244,13 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(4)), None, None, None))
+                .limits(Limits::new(
+                    Some(Duration::from_secs(4)),
+                    None,
+                    None,
+                    None,
+                    None,
+                ))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -257,7 +263,13 @@ fn test_wall_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
                 .new_root(dir)
-                .limits(Limits::new(Some(Duration::from_secs(1)), None, None, None))
+                .limits(Limits::new(
+                    Some(Duration::from_secs(1)),
+                    None,
+                    None,
+                    None,
+                    None,
+                ))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(
@@ -273,7 +285,13 @@ fn test_time_limit_exceeded() {
     utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
         let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
             .new_root(dir)
-            .limits(Limits::new(None, Some(Duration::from_secs(1)), None, None))
+            .limits(Limits::new(
+                None,
+                Some(Duration::from_secs(1)),
+                None,
+                None,
+                None,
+            ))
             .build_and_run()
             .unwrap();
         assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -285,6 +303,7 @@ fn test_time_limit_exceeded() {
             .limits(Limits::new(
                 None,
                 Some(Duration::from_millis(250)),
+                None,
                 None,
                 None,
             ))
@@ -305,7 +324,13 @@ fn test_threads_time_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
                 .new_root(dir)
-                .limits(Limits::new(None, Some(Duration::from_secs(1)), None, None))
+                .limits(Limits::new(
+                    None,
+                    Some(Duration::from_secs(1)),
+                    None,
+                    None,
+                    None,
+                ))
                 .build_and_run()
                 .unwrap();
             assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
@@ -321,6 +346,7 @@ fn test_threads_time_limit_exceeded() {
                 .limits(Limits::new(
                     None,
                     Some(Duration::from_millis(250)),
+                    None,
                     None,
                     None,
                 ))
@@ -347,6 +373,7 @@ fn test_threads_wall_time_limit_exceeded() {
                     Some(Duration::from_secs(1)),
                     None,
                     None,
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
@@ -368,6 +395,7 @@ fn test_memory_limit_exceeded() {
                     None,
                     Some(SpaceUsage::from_megabytes(30)),
                     None,
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
@@ -385,6 +413,7 @@ fn test_memory_limit_exceeded() {
                     None,
                     None,
                     Some(SpaceUsage::from_megabytes(18)),
+                    None,
                     None,
                 ))
                 .build_and_run()
@@ -410,6 +439,7 @@ fn test_threads_memory_limit_exceeded() {
                     None,
                     Some(SpaceUsage::from_megabytes(40)),
                     None,
+                    None,
                 ))
                 .build_and_run()
                 .unwrap();
@@ -427,6 +457,7 @@ fn test_threads_memory_limit_exceeded() {
                     None,
                     None,
                     Some(SpaceUsage::from_megabytes(18)),
+                    None,
                     None,
                 ))
                 .build_and_run()
@@ -447,7 +478,7 @@ fn test_pids_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
                 .new_root(dir)
-                .limits(Limits::new(None, None, None, Some(5)))
+                .limits(Limits::new(None, None, None, None, Some(5)))
                 .build_and_run()
                 .unwrap();
             println!("{}", run_info);
@@ -461,7 +492,7 @@ fn test_pids_limit_exceeded() {
         |dir| {
             let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
                 .new_root(dir)
-                .limits(Limits::new(None, None, None, Some(4)))
+                .limits(Limits::new(None, None, None, None, Some(4)))
                 .build_and_run()
                 .unwrap();
             println!("{}", run_info);
