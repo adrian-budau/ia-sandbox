@@ -120,11 +120,11 @@ pub fn enter_memory_cgroup(
         instance_name,
     )?;
     cgroup_write(&instance_path, "memory.max_usage_in_bytes", "0\n")?;
-    cgroup_write(&instance_path, "memory.memsw.max_usage_in_bytes", "0\n")?;
+    cgroup_write(&instance_path, "memory.memsw.max_usage_in_bytes", "0\n").unwrap_or(());
 
     // Reset limits to infinite in case there is no memory limit but also because we need at all
     // times for limit_in_bytes < memsw.limit_in_bytes
-    cgroup_write(&instance_path, "memory.memsw.limit_in_bytes", "-1\n")?;
+    cgroup_write(&instance_path, "memory.memsw.limit_in_bytes", "-1\n").unwrap_or(());
     cgroup_write(&instance_path, "memory.limit_in_bytes", "-1\n")?;
     if let Some(memory_limit) = memory_limit {
         // Assign some extra memory so that we can tell when a killed by signal 9 is actually a
@@ -138,7 +138,7 @@ pub fn enter_memory_cgroup(
             &instance_path,
             "memory.memsw.limit_in_bytes",
             format!("{}\n", memory_limit.as_bytes() + EXTRA_MEMORY_GIVEN),
-        )?;
+        ).unwrap_or(());
     }
 
     enter_cgroup(&instance_path)
@@ -193,7 +193,7 @@ pub fn get_usage(
     let memory_instance_path = memory_controller_path.join(instance);
     let memory = SpaceUsage::from_bytes(cmp::max(
         cgroup_read(&memory_instance_path, "memory.max_usage_in_bytes")?,
-        cgroup_read(&memory_instance_path, "memory.memsw.max_usage_in_bytes")?,
+        cgroup_read(&memory_instance_path, "memory.memsw.max_usage_in_bytes").unwrap_or(0),
     ));
     Ok(RunUsage::new(user_time, wall_time, memory))
 }
