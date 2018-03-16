@@ -177,6 +177,7 @@ pub fn enter_all_cgroups(
 pub fn get_usage(
     controller_path: &ControllerPath,
     instance_name: Option<&OsStr>,
+    wall_time: Duration,
 ) -> Result<RunUsage> {
     let cpuacct_controller_path = controller_path
         .cpuacct()
@@ -194,5 +195,5 @@ pub fn get_usage(
         cgroup_read(&memory_instance_path, "memory.max_usage_in_bytes")?,
         cgroup_read(&memory_instance_path, "memory.memsw.max_usage_in_bytes")?,
     ));
-    Ok(RunUsage::new(user_time, memory))
+    Ok(RunUsage::new(user_time, wall_time, memory))
 }

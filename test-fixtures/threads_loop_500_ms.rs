@@ -1,5 +1,7 @@
+extern crate libc;
+
+use std::mem;
 use std::thread;
-use std::time::{Duration, Instant};
 
 const NUM_THREADS: usize = 4;
 
@@ -7,8 +9,6 @@ fn main() {
     let threads: Vec<_> = (0..NUM_THREADS)
         .map(|_| {
             thread::spawn(move || {
-                let now = Instant::now();
-
                 let mut steps = 0;
                 loop {
                     steps += 1;
@@ -16,7 +16,12 @@ fn main() {
                         continue;
                     }
                     steps = 0;
-                    if now.elapsed() > Duration::from_millis((500 / NUM_THREADS) as u64) {
+                    let mut usage: libc::rusage = unsafe { mem::zeroed() };
+                    unsafe {
+                        libc::getrusage(libc::RUSAGE_THREAD, &mut usage);
+                    }
+                    let us = usage.ru_utime.tv_sec * 1000000 + usage.ru_utime.tv_usec;
+                    if us >= 500000 / NUM_THREADS as i64 {
                         break;
                     }
                 }

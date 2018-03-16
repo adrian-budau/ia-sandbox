@@ -12,7 +12,7 @@ use std::os::unix::io::FromRawFd;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::result::Result as StdResult;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bincode;
 use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
@@ -304,8 +304,8 @@ pub fn mount_proc() -> Result<()> {
     }
 }
 
-const EXEC_RETRIES: usize = 3;
-const RETRY_DELAY: libc::c_uint = 100000;
+const EXEC_RETRIES: usize = 10;
+const RETRY_DELAY: libc::c_uint = 50000;
 pub fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
     let arguments_c_string: Vec<_> = iter::once(os_str_to_c_string(command))
         .chain(arguments.iter().map(os_str_to_c_string)) // convert to C pointers
@@ -520,7 +520,7 @@ pub struct CloneHandle<T> {
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn wait<F: Fn() -> StdResult<RunUsage, Error>>(
+    pub fn wait<F: Fn(Duration) -> StdResult<RunUsage, Error>>(
         mut self,
         limits: Limits,
         usage: F,
@@ -538,12 +538,8 @@ impl<T: DeserializeOwned> CloneHandle<T> {
         };
 
         loop {
-            let usage = usage()?;
-            for timeout in limits.wall_time() {
-                if timer.elapsed() >= timeout {
-                    return Ok(RunInfo::new(RunInfoResult::WallTimeLimitExceeded, usage));
-                }
-            }
+            let wall_time = timer.elapsed();
+            let usage = usage(wall_time)?;
 
             if let Some(run_info) = usage.check_limits(limits) {
                 return Ok(run_info);
@@ -563,7 +559,7 @@ impl<T: DeserializeOwned> CloneHandle<T> {
                 }
                 _ => {
                     if unsafe { libc::WIFEXITED(status) } {
-                        let exit_code = unsafe { libc::WEXITSTATUS(status) };
+                        let exit_code = unsafe { libc::WEXITSTATUS(status) } as u32;
                         if exit_code == 0 {
                             return Ok(RunInfo::new(RunInfoResult::Success(result), usage));
                         } else {
@@ -575,7 +571,7 @@ impl<T: DeserializeOwned> CloneHandle<T> {
                     }
 
                     if unsafe { libc::WIFSIGNALED(status) } {
-                        let signal = unsafe { libc::WTERMSIG(status) };
+                        let signal = unsafe { libc::WTERMSIG(status) } as u32;
                         return Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal), usage));
                     }
 
@@ -585,5 +581,12 @@ impl<T: DeserializeOwned> CloneHandle<T> {
                 }
             }
         }
+    }
+}
+
+impl<T> Drop for CloneHandle<T> {
+    fn drop(&mut self) {
+        let _ = unsafe { libc::kill(self.pid, libc::SIGKILL) };
+        let _ = unsafe { libc::kill(-self.pid, libc::SIGKILL) };
     }
 }

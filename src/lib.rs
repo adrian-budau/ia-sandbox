@@ -1,6 +1,5 @@
 #![recursion_limit = "1024"]
 #![feature(fnbox)]
-#![feature(conservative_impl_trait)]
 #![feature(duration_extras)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
@@ -16,6 +15,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
+pub mod utils;
 pub mod errors;
 pub mod run_info;
 pub mod config;
@@ -90,10 +90,11 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
             ffi::exec_command(config.command(), &config.args())?;
 
             Ok(())
-        })?.wait(config.limits(), || {
+        })?.wait(config.limits(), |wall_time| {
             Ok(cgroups::get_usage(
                 config.controller_path(),
                 config.instance_name(),
+                wall_time,
             )?)
         })
             .and_then(|run_info| {
@@ -102,7 +103,7 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
                     Some(result) => result.map_err(Error::ChildError),
                 })
             })
-    })?.wait(Limits::default(), || Ok(RunUsage::default()))
+    })?.wait(Limits::default(), |_| Ok(RunUsage::default()))
         .and_then(|run_info| {
             run_info
                 .success() // we only care if supervisor process successfully finished

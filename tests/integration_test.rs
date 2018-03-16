@@ -1,505 +1,341 @@
 extern crate ia_sandbox;
 extern crate tempdir;
 
-use std::fs::File;
-use std::io::{Read, Write};
 use std::time::Duration;
 
-use ia_sandbox::config::{Limits, SpaceUsage};
-use ia_sandbox::run_info::RunInfoResult;
+use ia_sandbox::config::SpaceUsage;
+use ia_sandbox::errors::{ChildError, Error, FFIError};
 
 #[macro_use]
 mod utils;
-use utils::ConfigBuilder;
+use utils::{LimitsBuilder, PivotRoot, RunInfoExt, TestRunnerHelper};
+use utils::matchers::{CompareLimits, IsSuccess, KilledBySignal, MemoryLimitExceeded,
+                      NonZeroExitStatus, TimeLimitExceeded, WallTimeLimitExceeded};
 
-const HELLO_WORLD: [(&'static str, &'static str); 1] =
-    [("./target/release/hello_world", "/hello_world")];
+const HELLO_WORLD: &'static str = "./target/release/hello_world";
 
-const EXIT_WITH_INPUT: [(&'static str, &'static str); 1] =
-    [("./target/release/exit_with_input", "/exit_with_input")];
+const EXIT_WITH_INPUT: &'static str = "./target/release/exit_with_input";
 
-const EXIT_WITH_LAST_ARGUMENT: [(&'static str, &'static str); 1] = [
-    (
-        "./target/release/exit_with_last_argument",
-        "/exit_with_last_argument",
-    ),
-];
+const EXIT_WITH_LAST_ARGUMENT: &'static str = "./target/release/exit_with_last_argument";
 
-const KILL_WITH_SIGNAL_ARG: [(&'static str, &'static str); 1] = [
-    (
-        "./target/debug/kill_with_signal_arg",
-        "/kill_with_signal_arg",
-    ),
-];
+const KILL_WITH_SIGNAL_ARG: &'static str = "./target/debug/kill_with_signal_arg";
 
-const SLEEP_2_SECOND: [(&'static str, &'static str); 1] =
-    [("./target/release/sleep_2_seconds", "/sleep_2_seconds")];
+const SLEEP_2_SECOND: &'static str = "./target/release/sleep_2_seconds";
 
-const LOOP_500_MS: [(&'static str, &'static str); 1] =
-    [("./target/release/loop_500_ms", "/loop_500_ms")];
+const LOOP_500_MS: &'static str = "./target/release/loop_500_ms";
 
-const THREADS_LOOP_500_MS: [(&'static str, &'static str); 1] = [
-    (
-        "./target/release/threads_loop_500_ms",
-        "/threads_loop_500_ms",
-    ),
-];
+const THREADS_LOOP_500_MS: &'static str = "./target/release/threads_loop_500_ms";
 
-const ALLOCATE_20_MEGABYTES: [(&'static str, &'static str); 1] = [
-    (
-        "./target/release/allocate_20_megabytes",
-        "/allocate_20_megabytes",
-    ),
-];
+const ALLOCATE_20_MEGABYTES: &'static str = "./target/release/allocate_20_megabytes";
 
-const THREADS_ALLOCATE_20_MEGABYTES: [(&'static str, &'static str); 1] = [
-    (
-        "./target/release/threads_allocate_20_megabytes",
-        "/threads_allocate_20_megabytes",
-    ),
-];
+const THREADS_ALLOCATE_20_MEGABYTES: &'static str =
+    "./target/release/threads_allocate_20_megabytes";
 
 #[test]
 fn test_basic_sandbox() {
-    utils::with_setup("test_basic_sandbox", HELLO_WORLD.iter(), |dir| {
-        let run_info = ConfigBuilder::new(dir.join(HELLO_WORLD[0].1.trim_left_matches('/')))
-            .build_and_run()
-            .unwrap();
-        assert!(run_info.is_success());
-    });
+    TestRunnerHelper::for_simple_exec("test_basic_sandbox", HELLO_WORLD, PivotRoot::DoNot)
+        .config_builder()
+        .build_and_run()
+        .unwrap()
+        .assert(IsSuccess)
 }
 
 #[test]
 fn test_exec_failed() {
-    utils::with_setup("test_exec_failed", HELLO_WORLD[..].iter(), |dir| {
-        let result = ConfigBuilder::new(dir.join("missing")).build_and_run();
-
-        use ia_sandbox::errors::*;
-        assert!(matches!(
-            result,
-            Err(Error::ChildError(ChildError::FFIError(FFIError::ExecError { .. })))
-        ));
-    });
+    match TestRunnerHelper::for_simple_exec("test_exec_failed", HELLO_WORLD, PivotRoot::DoNot)
+        .config_builder()
+        .command("missing")
+        .build_and_run()
+        .unwrap_err()
+    {
+        Error::ChildError(ChildError::FFIError(FFIError::ExecError { .. })) => (),
+        err => assert!(false, "Expected exec error, got {}", err),
+    }
 }
 
 #[test]
 fn test_pivot_root() {
-    utils::with_setup("test_pivot_root", HELLO_WORLD[..].iter(), |dir| {
-        let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir)
-            .build_and_run()
-            .unwrap();
-        assert!(run_info.is_success());
-    });
+    TestRunnerHelper::for_simple_exec("test_pivot_root", HELLO_WORLD, PivotRoot::Pivot)
+        .config_builder()
+        .build_and_run()
+        .unwrap()
+        .assert(IsSuccess)
 }
 
 #[test]
 fn test_unshare_net() {
-    utils::with_setup("test_unshare_net", HELLO_WORLD[..].iter(), |dir| {
-        let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir)
-            .share_net(false)
-            .build_and_run()
-            .unwrap();
-        assert!(run_info.is_success());
-    });
+    TestRunnerHelper::for_simple_exec("test_unshare_net", HELLO_WORLD, PivotRoot::Pivot)
+        .config_builder()
+        .share_net(false)
+        .build_and_run()
+        .unwrap()
+        .assert(IsSuccess)
 }
 
 #[test]
 fn test_redirect_stdin() {
-    utils::with_setup("test_redirect_stdin", EXIT_WITH_INPUT[..].iter(), |dir| {
-        let mut input = File::create(dir.join("input")).unwrap();
-        input.write(b"0").unwrap();
+    let mut helper =
+        TestRunnerHelper::for_simple_exec("test_redirect_stdin", EXIT_WITH_INPUT, PivotRoot::Pivot);
 
-        let run_info = ConfigBuilder::new(EXIT_WITH_INPUT[0].1)
-            .new_root(dir)
-            .stdin(dir.join("input"))
-            .build_and_run()
-            .unwrap();
-        assert!(run_info.is_success());
-    });
+    helper.write_file("input", b"0");
+    let input_path = helper.file_path("input");
+    helper
+        .config_builder()
+        .stdin(input_path)
+        .build_and_run()
+        .unwrap()
+        .assert(IsSuccess);
 
-    utils::with_setup("test_redirect_stdin", EXIT_WITH_INPUT[..].iter(), |dir| {
-        let mut input = File::create(dir.join("input")).unwrap();
-        input.write(b"23").unwrap();
-
-        let run_info = ConfigBuilder::new(EXIT_WITH_INPUT[0].1)
-            .new_root(dir)
-            .stdin(dir.join("input"))
-            .build_and_run()
-            .unwrap();
-        assert!(matches!(
-            run_info.result(),
-            &RunInfoResult::NonZeroExitStatus(23)
-        ));
-    });
+    helper.write_file("input", b"23");
+    helper
+        .config_builder()
+        .build_and_run()
+        .unwrap()
+        .assert(NonZeroExitStatus::new(23));
 }
 
 #[test]
 fn test_redirect_stdout() {
-    utils::with_setup("test_redirect_stdout", HELLO_WORLD[..].iter(), |dir| {
-        let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir)
-            .stdout(dir.join("output"))
-            .build_and_run()
-            .unwrap();
-        assert!(run_info.is_success());
+    let mut helper =
+        TestRunnerHelper::for_simple_exec("test_redirect_stdout", HELLO_WORLD, PivotRoot::Pivot);
 
-        let mut output = File::open(dir.join("output")).unwrap();
-        let mut line = String::new();
-        output.read_to_string(&mut line).unwrap();
-        assert_eq!(line, "Hello World!\n");
-    });
+    let output_path = helper.file_path("output");
+    helper
+        .config_builder()
+        .stdout(&output_path)
+        .build_and_run()
+        .unwrap()
+        .assert(IsSuccess);
+
+    assert_eq!(helper.read_line(output_path), "Hello World!\n");
 }
 
 #[test]
 fn test_redirect_stderr() {
-    utils::with_setup("test_redirect_stderr", HELLO_WORLD[..].iter(), |dir| {
-        let run_info = ConfigBuilder::new(HELLO_WORLD[0].1)
-            .new_root(dir)
-            .stderr(dir.join("stderr"))
-            .build_and_run()
-            .unwrap();
-        assert!(run_info.is_success());
+    let mut helper =
+        TestRunnerHelper::for_simple_exec("test_redirect_stderr", HELLO_WORLD, PivotRoot::Pivot);
 
-        let mut output = File::open(dir.join("stderr")).unwrap();
-        let mut line = String::new();
-        output.read_to_string(&mut line).unwrap();
-        assert_eq!(line, "Hello stderr!\n");
-    });
+    let stderr_path = helper.file_path("stderr");
+    helper
+        .config_builder()
+        .stderr(&stderr_path)
+        .build_and_run()
+        .unwrap()
+        .assert(IsSuccess);
+
+    assert_eq!(helper.read_line(stderr_path), "Hello stderr!\n");
 }
 
 #[test]
 fn test_arguments() {
-    utils::with_setup(
-        "test_arguments",
-        EXIT_WITH_LAST_ARGUMENT[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(EXIT_WITH_LAST_ARGUMENT[0].1)
-                .new_root(dir)
-                .arg("0")
-                .build_and_run()
-                .unwrap();
-            assert!(run_info.is_success());
-        },
-    );
+    TestRunnerHelper::for_simple_exec("test_arguments", EXIT_WITH_LAST_ARGUMENT, PivotRoot::Pivot)
+        .config_builder()
+        .arg("0")
+        .build_and_run()
+        .unwrap()
+        .assert(IsSuccess);
 
-    utils::with_setup(
-        "test_arguments",
-        EXIT_WITH_LAST_ARGUMENT[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(EXIT_WITH_LAST_ARGUMENT[0].1)
-                .new_root(dir)
-                .args(vec!["24", "0", "17"])
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::NonZeroExitStatus(17)
-            ));
-        },
-    );
+    TestRunnerHelper::for_simple_exec("test_arguments", EXIT_WITH_LAST_ARGUMENT, PivotRoot::Pivot)
+        .config_builder()
+        .args(vec!["24", "0", "17"])
+        .build_and_run()
+        .unwrap()
+        .assert(NonZeroExitStatus::new(17))
 }
 
 #[test]
 fn test_killed_by_signal() {
-    utils::with_setup(
+    TestRunnerHelper::for_simple_exec(
         "test_killed_by_signal",
-        KILL_WITH_SIGNAL_ARG[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(KILL_WITH_SIGNAL_ARG[0].1)
-                .new_root(dir)
-                .arg("8")
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::KilledBySignal(8)
-            ));
-        },
-    );
+        KILL_WITH_SIGNAL_ARG,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .arg("8")
+        .build_and_run()
+        .unwrap()
+        .assert(KilledBySignal(8));
 
-    utils::with_setup(
+    TestRunnerHelper::for_simple_exec(
         "test_killed_by_signal",
-        KILL_WITH_SIGNAL_ARG[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(KILL_WITH_SIGNAL_ARG[0].1)
-                .new_root(dir)
-                .arg("11")
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::KilledBySignal(11)
-            ));
-        },
-    );
+        KILL_WITH_SIGNAL_ARG,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .arg("11")
+        .build_and_run()
+        .unwrap()
+        .assert(KilledBySignal(11));
 }
 
 #[test]
 fn test_wall_time_limit_exceeded() {
-    utils::with_setup(
-        "test_wall_time_limit_exceeded",
-        SLEEP_2_SECOND[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    Some(Duration::from_secs(4)),
-                    None,
-                    None,
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
-        },
-    );
+    let mut limits = LimitsBuilder::new();
+    limits.wall_time(Duration::from_millis(2200));
 
-    utils::with_setup(
+    TestRunnerHelper::for_simple_exec(
         "test_wall_time_limit_exceeded",
-        SLEEP_2_SECOND[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(SLEEP_2_SECOND[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    Some(Duration::from_secs(1)),
-                    None,
-                    None,
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::WallTimeLimitExceeded
-            ));
-        },
-    );
+        SLEEP_2_SECOND,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+
+    limits.wall_time(Duration::from_millis(1800));
+    TestRunnerHelper::for_simple_exec(
+        "test_wall_time_limit_exceeded",
+        SLEEP_2_SECOND,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(WallTimeLimitExceeded, limits));
 }
 
 #[test]
 fn test_time_limit_exceeded() {
-    utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
-        let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
-            .new_root(dir)
-            .limits(Limits::new(
-                None,
-                Some(Duration::from_secs(1)),
-                None,
-                None,
-                None,
-            ))
-            .build_and_run()
-            .unwrap();
-        assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
-    });
+    let mut limits = LimitsBuilder::new();
+    limits.user_time(Duration::from_millis(600));
 
-    utils::with_setup("test_time_limit_exceeded", LOOP_500_MS[..].iter(), |dir| {
-        let run_info = ConfigBuilder::new(LOOP_500_MS[0].1)
-            .new_root(dir)
-            .limits(Limits::new(
-                None,
-                Some(Duration::from_millis(250)),
-                None,
-                None,
-                None,
-            ))
-            .build_and_run()
-            .unwrap();
-        assert!(matches!(
-            run_info.result(),
-            &RunInfoResult::TimeLimitExceeded
-        ));
-    });
+    TestRunnerHelper::for_simple_exec("test_time_limit_exceeded", LOOP_500_MS, PivotRoot::Pivot)
+        .config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+
+    limits.user_time(Duration::from_millis(450));
+    TestRunnerHelper::for_simple_exec("test_time_limit_exceeded", LOOP_500_MS, PivotRoot::Pivot)
+        .config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(TimeLimitExceeded, limits));
 }
 
 #[test]
 fn test_threads_time_limit_exceeded() {
-    utils::with_setup(
-        "test_threads_time_limit_exceeded",
-        THREADS_LOOP_500_MS[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    None,
-                    Some(Duration::from_secs(1)),
-                    None,
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
-        },
-    );
+    let mut limits = LimitsBuilder::new();
+    limits.user_time(Duration::from_millis(600));
 
-    utils::with_setup(
+    TestRunnerHelper::for_simple_exec(
         "test_threads_time_limit_exceeded",
-        THREADS_LOOP_500_MS[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    None,
-                    Some(Duration::from_millis(250)),
-                    None,
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::TimeLimitExceeded
-            ));
-        },
-    );
+        THREADS_LOOP_500_MS,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+
+    limits.user_time(Duration::from_millis(450));
+    TestRunnerHelper::for_simple_exec(
+        "test_threads_time_limit_exceeded",
+        THREADS_LOOP_500_MS,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(TimeLimitExceeded, limits));
 }
 
 #[test]
 fn test_threads_wall_time_limit_exceeded() {
-    utils::with_setup(
+    let mut limits = LimitsBuilder::new();
+    limits
+        .wall_time(Duration::from_millis(1000))
+        .user_time(Duration::from_millis(600));
+
+    TestRunnerHelper::for_simple_exec(
         "test_threads_wall_time_limit_exceeded",
-        THREADS_LOOP_500_MS[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(THREADS_LOOP_500_MS[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    Some(Duration::from_secs(1)),
-                    Some(Duration::from_secs(1)),
-                    None,
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
-        },
-    );
+        THREADS_LOOP_500_MS,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
 }
 
 #[test]
 fn test_memory_limit_exceeded() {
-    utils::with_setup(
-        "test_memory_limit_exceeded",
-        ALLOCATE_20_MEGABYTES[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(ALLOCATE_20_MEGABYTES[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    None,
-                    None,
-                    Some(SpaceUsage::from_megabytes(30)),
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
-        },
-    );
+    let mut limits = LimitsBuilder::new();
+    limits.memory(SpaceUsage::from_megabytes(26));
 
-    utils::with_setup(
+    TestRunnerHelper::for_simple_exec(
         "test_memory_limit_exceeded",
-        ALLOCATE_20_MEGABYTES[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(ALLOCATE_20_MEGABYTES[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    None,
-                    None,
-                    Some(SpaceUsage::from_megabytes(18)),
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::MemoryLimitExceeded
-            ));
-        },
-    );
+        ALLOCATE_20_MEGABYTES,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+
+    limits.memory(SpaceUsage::from_megabytes(19));
+    TestRunnerHelper::for_simple_exec(
+        "test_memory_limit_exceeded",
+        ALLOCATE_20_MEGABYTES,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(MemoryLimitExceeded, limits));
 }
 
 #[test]
 fn test_threads_memory_limit_exceeded() {
-    utils::with_setup(
-        "test_threads_memory_limit_exceeded",
-        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    None,
-                    None,
-                    Some(SpaceUsage::from_megabytes(40)),
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
-        },
-    );
+    let mut limits = LimitsBuilder::new();
+    limits.memory(SpaceUsage::from_megabytes(40));
 
-    utils::with_setup(
+    TestRunnerHelper::for_simple_exec(
         "test_threads_memory_limit_exceeded",
-        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
-                .new_root(dir)
-                .limits(Limits::new(
-                    None,
-                    None,
-                    Some(SpaceUsage::from_megabytes(18)),
-                    None,
-                    None,
-                ))
-                .build_and_run()
-                .unwrap();
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::MemoryLimitExceeded
-            ));
-        },
-    );
+        THREADS_ALLOCATE_20_MEGABYTES,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+
+    limits.memory(SpaceUsage::from_megabytes(19));
+    TestRunnerHelper::for_simple_exec(
+        "test_threads_memory_limit_exceeded",
+        THREADS_ALLOCATE_20_MEGABYTES,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(MemoryLimitExceeded, limits));
 }
 
 #[test]
 fn test_pids_limit_exceeded() {
-    utils::with_setup(
-        "test_pids_limit",
-        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
-                .new_root(dir)
-                .limits(Limits::new(None, None, None, None, Some(5)))
-                .build_and_run()
-                .unwrap();
-            println!("{}", run_info);
-            assert!(matches!(run_info.result(), &RunInfoResult::Success(_)));
-        },
-    );
+    let mut limits = LimitsBuilder::new();
+    limits.pids(5);
 
-    utils::with_setup(
-        "test_pids_limit",
-        THREADS_ALLOCATE_20_MEGABYTES[..].iter(),
-        |dir| {
-            let run_info = ConfigBuilder::new(THREADS_ALLOCATE_20_MEGABYTES[0].1)
-                .new_root(dir)
-                .limits(Limits::new(None, None, None, None, Some(4)))
-                .build_and_run()
-                .unwrap();
-            println!("{}", run_info);
-            assert!(matches!(
-                run_info.result(),
-                &RunInfoResult::NonZeroExitStatus(_)
-            ));
-        },
-    );
+    TestRunnerHelper::for_simple_exec(
+        "test_pids_limit_exceeded",
+        THREADS_ALLOCATE_20_MEGABYTES,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+
+    limits.pids(4);
+    TestRunnerHelper::for_simple_exec(
+        "test_pids_limit_exceeded",
+        THREADS_ALLOCATE_20_MEGABYTES,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(NonZeroExitStatus::any(), limits));
 }

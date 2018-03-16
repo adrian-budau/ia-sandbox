@@ -2,12 +2,13 @@ use std::fmt::{self, Display, Formatter};
 use std::time::Duration;
 
 use config::{Limits, SpaceUsage};
+use utils::DurationDisplay;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RunInfoResult<T> {
     Success(T),
-    NonZeroExitStatus(i32),
-    KilledBySignal(i32),
+    NonZeroExitStatus(u32),
+    KilledBySignal(u32),
     MemoryLimitExceeded,
     TimeLimitExceeded,
     WallTimeLimitExceeded,
@@ -63,16 +64,25 @@ impl<T> Display for RunInfoResult<T> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RunUsage {
     user_time: Duration,
+    wall_time: Duration,
     memory: SpaceUsage,
 }
 
 impl RunUsage {
-    pub fn new(user_time: Duration, memory: SpaceUsage) -> RunUsage {
-        RunUsage { user_time, memory }
+    pub fn new(user_time: Duration, wall_time: Duration, memory: SpaceUsage) -> RunUsage {
+        RunUsage {
+            user_time,
+            wall_time,
+            memory,
+        }
     }
 
     pub fn user_time(&self) -> Duration {
         self.user_time
+    }
+
+    pub fn wall_time(&self) -> Duration {
+        self.wall_time
     }
 
     pub fn memory(&self) -> SpaceUsage {
@@ -89,6 +99,14 @@ impl RunUsage {
         }
 
         if limits
+            .wall_time()
+            .map(|time| time < self.wall_time())
+            .unwrap_or(false)
+        {
+            return Some(RunInfo::new(RunInfoResult::WallTimeLimitExceeded, self));
+        }
+
+        if limits
             .memory()
             .map(|memory| memory < self.memory())
             .unwrap_or(false)
@@ -102,19 +120,19 @@ impl RunUsage {
 
 impl Default for RunUsage {
     fn default() -> RunUsage {
-        RunUsage::new(Duration::from_secs(0), SpaceUsage::from_bytes(0))
+        RunUsage::new(
+            Duration::from_secs(0),
+            Duration::from_secs(0),
+            SpaceUsage::from_bytes(0),
+        )
     }
 }
 
 impl Display for RunUsage {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        writeln!(
-            f,
-            "Total user time: {}",
-            self.user_time().as_secs() as f64
-                + (self.user_time().subsec_nanos() as f64) / 1_000_000_000.
-        )?;
-        write!(f, "Total memory: {}", self.memory())
+        writeln!(f, "Total user time: {}s", DurationDisplay(self.user_time()))?;
+        writeln!(f, "Wall time: {}", DurationDisplay(self.wall_time()))?;
+        write!(f, "Maximum memory: {}", self.memory())
     }
 }
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

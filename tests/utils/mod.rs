@@ -1,21 +1,27 @@
-use std::ffi::{OsStr, OsString};
-use std::fs;
-use std::io::{BufRead, BufReader};
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+
+use ia_sandbox::run_info::RunInfo;
 
 use tempdir;
 
-use ia_sandbox::{self, Result};
-use ia_sandbox::config::{Config, Limits, ShareNet};
-use ia_sandbox::run_info::RunInfo;
+mod builder;
+pub use self::builder::{ConfigBuilder, LimitsBuilder};
+
+pub mod matchers;
+use self::matchers::Matcher;
 
 fn get_exec_libs<T>(file: T) -> Vec<PathBuf>
 where
     T: AsRef<Path>,
 {
-    let output = Command::new("ldd").arg(file.as_ref()).output().unwrap();
-
+    let output = Command::new("ldd")
+        .stdin(Stdio::null())
+        .arg(file.as_ref())
+        .output()
+        .unwrap();
     if !output.status.success() {
         return vec![];
     }
@@ -45,133 +51,103 @@ where
 {
     for lib in get_exec_libs(file) {
         let destination = path.as_ref().join(lib.strip_prefix("/").unwrap());
-        for parent in destination.parent() {
+        if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent).unwrap();
         }
         fs::copy(&lib, destination).unwrap();
     }
 }
 
-pub fn with_setup<'a, 'b, I, T1, T2, F>(prefix: &'b str, files: I, cb: F)
-where
-    I: IntoIterator<Item = &'a (T1, T2)>,
-    T1: AsRef<Path> + 'a,
-    T2: AsRef<Path> + 'a,
-    F: for<'c> FnOnce(&'c Path),
-{
-    let temp_dir = tempdir::TempDir::new(prefix).unwrap();
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PivotRoot {
+    Pivot,
+    DoNot,
+}
 
-    for &(ref source, ref target) in files {
+pub struct TestRunnerHelper<'a> {
+    test_name: &'a str,
+    temp_dir: tempdir::TempDir,
+    config_builder: ConfigBuilder,
+}
+
+impl<'a> TestRunnerHelper<'a> {
+    pub fn for_simple_exec<T: AsRef<Path>>(
+        test_name: &str,
+        exec_path: T,
+        pivot_root: PivotRoot,
+    ) -> TestRunnerHelper {
+        let temp_dir = tempdir::TempDir::new(test_name).unwrap();
+        let exec_path = exec_path.as_ref();
+
         fs::copy(
-            &source,
-            temp_dir
-                .path()
-                .join(target.as_ref().strip_prefix("/").unwrap()),
+            exec_path,
+            temp_dir.path().join(exec_path.file_name().unwrap()),
         ).unwrap();
-        copy_libs(source, temp_dir.path());
-    }
-    cb(temp_dir.path());
-}
+        if pivot_root == PivotRoot::Pivot {
+            copy_libs(exec_path, temp_dir.path());
+        }
 
-pub struct ConfigBuilder {
-    command: PathBuf,
-    args: Vec<OsString>,
-    new_root: Option<PathBuf>,
-    share_net: bool,
-    redirect_stdin: Option<PathBuf>,
-    redirect_stdout: Option<PathBuf>,
-    redirect_stderr: Option<PathBuf>,
-    limits: Option<Limits>,
-}
+        let mut config_builder = match pivot_root {
+            PivotRoot::Pivot => {
+                let mut config_builder =
+                    ConfigBuilder::new(Path::new("/").join(exec_path.file_name().unwrap()));
+                config_builder.new_root(temp_dir.path());
+                config_builder
+            }
+            PivotRoot::DoNot => ConfigBuilder::new(exec_path),
+        };
 
-impl ConfigBuilder {
-    pub fn new<T: AsRef<OsStr>>(command: T) -> ConfigBuilder {
-        ConfigBuilder {
-            command: command.as_ref().into(),
-            args: vec![],
-            new_root: None,
-            share_net: true,
-            redirect_stdin: Some("/dev/null".into()),
-            redirect_stdout: Some("/dev/null".into()),
-            redirect_stderr: Some("/dev/null".into()),
-            limits: None,
+        config_builder.instance_name(test_name);
+        TestRunnerHelper {
+            test_name,
+            temp_dir,
+            config_builder,
         }
     }
 
-    pub fn arg<T: AsRef<OsStr>>(&mut self, arg: T) -> &mut ConfigBuilder {
-        self.args.push(arg.as_ref().into());
-        self
+    pub fn config_builder(&mut self) -> &mut ConfigBuilder {
+        &mut self.config_builder
     }
 
-    pub fn args<I, T>(&mut self, args: I) -> &mut ConfigBuilder
-    where
-        I: IntoIterator<Item = T>,
-        T: AsRef<OsStr>,
-    {
-        for arg in args.into_iter() {
-            self.arg(arg);
-        }
-
-        self
+    pub fn file_path<T: AsRef<Path>>(&mut self, path: T) -> PathBuf {
+        self.temp_dir.path().join(path.as_ref())
     }
 
-    pub fn new_root<T: AsRef<Path>>(&mut self, new_root: T) -> &mut ConfigBuilder {
-        self.new_root = Some(new_root.as_ref().into());
-        self
+    pub fn write_file<T: AsRef<Path>>(&mut self, path: T, data: &[u8]) {
+        let mut file = File::create(self.file_path(path)).unwrap();
+        file.write(data).unwrap();
     }
 
-    pub fn share_net(&mut self, share_net: bool) -> &mut ConfigBuilder {
-        self.share_net = share_net;
-        self
-    }
-
-    pub fn stdin<T: AsRef<Path>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
-        self.redirect_stdin = Some(redirect_stdin.as_ref().into());
-        self
-    }
-
-    pub fn stdout<T: AsRef<Path>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
-        self.redirect_stdout = Some(redirect_stdin.as_ref().into());
-        self
-    }
-
-    pub fn stderr<T: AsRef<Path>>(&mut self, redirect_stdin: T) -> &mut ConfigBuilder {
-        self.redirect_stderr = Some(redirect_stdin.as_ref().into());
-        self
-    }
-
-    pub fn limits(&mut self, limits: Limits) -> &mut ConfigBuilder {
-        self.limits = Some(limits);
-        self
-    }
-
-    pub fn build_and_run(&mut self) -> Result<RunInfo<()>> {
-        let config = Config::new(
-            self.command.clone(),
-            self.args.clone(),
-            self.new_root.clone(),
-            if self.share_net {
-                ShareNet::Share
-            } else {
-                ShareNet::Unshare
-            },
-            self.redirect_stdin.clone(),
-            self.redirect_stdout.clone(),
-            self.redirect_stderr.clone(),
-            self.limits.unwrap_or(Default::default()),
-            Some(OsString::from("test")),
-            Default::default(),
-        );
-
-        ia_sandbox::run_jail(config)
+    pub fn read_line<T: AsRef<Path>>(&mut self, path: T) -> String {
+        let mut file = File::open(path.as_ref()).unwrap();
+        let mut line = String::new();
+        file.read_to_string(&mut line).unwrap();
+        line
     }
 }
 
-macro_rules! matches {
-    ($e:expr, $p: pat) => {
-        match $e {
-            $p => true,
-            _ => false
+impl<'a> Drop for TestRunnerHelper<'a> {
+    fn drop(&mut self) {
+        // Clear the cgroups folders
+        // we might get here because of a panic, so make sure not to panic again
+        fs::remove_dir(Path::new("/sys/fs/cgroup/cpuacct/ia-sandbox").join(self.test_name))
+            .unwrap_or(());
+        fs::remove_dir(Path::new("/sys/fs/cgroup/memory/ia-sandbox").join(self.test_name))
+            .unwrap_or(());
+        fs::remove_dir(Path::new("/sys/fs/cgroup/pids/ia-sandbox").join(self.test_name))
+            .unwrap_or(());
+    }
+}
+
+pub trait RunInfoExt {
+    fn assert<F: Matcher>(self, matcher: F);
+}
+
+impl RunInfoExt for RunInfo<()> {
+    fn assert<F: Matcher>(self, matcher: F) {
+        match matcher.try_match(self) {
+            Ok(()) => (),
+            Err(err) => panic!("assertion failed: {}\n{}", matcher.assertion_string(), err),
         }
     }
 }
