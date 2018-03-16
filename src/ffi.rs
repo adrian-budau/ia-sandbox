@@ -153,7 +153,7 @@ where
     let (read_error_pipe, mut write_error_pipe) = make_pipe()?;
     let f: Box<FnBox() + Send> = Box::new(move || {
         let result = f();
-        let _ = bincode::serialize_into(&mut write_error_pipe, &result, bincode::Infinite);
+        let _ = bincode::serialize_into(&mut write_error_pipe, &result);
     });
     let f = Box::new(f);
 

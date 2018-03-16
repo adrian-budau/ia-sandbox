@@ -6,10 +6,10 @@ authors = ["Adrian Budau <budau.adi@gmail.com>"]
 [dependencies]
 libc = "0.2"
 failure = "0.1.1"
-clap = "2.29"
+clap = "2.31"
 serde = "1.0"
 serde_derive = "1.0"
-bincode = "0.9"
+bincode = "1.0"
 clippy = {version = "0.0.*", optional = true}
 
 [dev-dependencies]
