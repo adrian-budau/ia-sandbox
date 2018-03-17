@@ -18,3 +18,13 @@ impl Display for DurationDisplay {
         }
     }
 }
+
+pub trait DurationExt {
+    fn as_millis(&self) -> u64;
+}
+
+impl DurationExt for Duration {
+    fn as_millis(&self) -> u64 {
+        self.as_secs() * 1000 + self.subsec_nanos() as u64 / 1_000_000
+    }
+}

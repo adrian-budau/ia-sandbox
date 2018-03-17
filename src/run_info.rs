@@ -130,7 +130,7 @@ impl Default for RunUsage {
 
 impl Display for RunUsage {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        writeln!(f, "Total user time: {}s", DurationDisplay(self.user_time()))?;
+        writeln!(f, "Total user time: {}", DurationDisplay(self.user_time()))?;
         writeln!(f, "Wall time: {}", DurationDisplay(self.wall_time()))?;
         write!(f, "Maximum memory: {}", self.memory())
     }

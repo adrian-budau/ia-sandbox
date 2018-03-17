@@ -183,4 +183,20 @@ pub fn app() -> App<'static, 'static> {
                      user running the sandbox.",
                 ),
         )
+        .arg(
+            Arg::with_name("output")
+                .short("o")
+                .long("output")
+                .takes_value(true)
+                .possible_values(&["human", "oneline", "json"])
+                .default_value("human")
+                .help("how to output the run information.")
+                .long_help(
+                    "how to output the run information.\n\
+                     human - multiline string describing everything, not suitable for\n\
+                     parsing.\n\
+                     oneline - USER_TIME MEMORY VERDICT\n\
+                     json - a single json object with 4 fields\n",
+                ),
+        )
 }

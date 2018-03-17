@@ -44,6 +44,10 @@ impl SpaceUsage {
     pub fn as_bytes(&self) -> u64 {
         self.0
     }
+
+    pub fn as_kilobytes(&self) -> u64 {
+        self.0 / 1_000
+    }
 }
 
 impl Display for SpaceUsage {

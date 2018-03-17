@@ -12,9 +12,15 @@ use failure::{self, ResultExt};
 
 type Result<T> = result::Result<T, failure::Error>;
 
-pub fn parse() -> Result<Config> {
+pub fn parse() -> Result<(Config, OutputType)> {
     let matches = app::app().get_matches();
-    ArgMatches(matches).to_config()
+    ArgMatches(matches).to_config_and_output()
+}
+
+pub enum OutputType {
+    Human,
+    Oneline,
+    Json,
 }
 
 struct ArgMatches<'a>(clap::ArgMatches<'a>);
@@ -74,7 +80,7 @@ fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
 }
 
 impl<'a> ArgMatches<'a> {
-    fn to_config(&self) -> Result<Config> {
+    fn to_config_and_output(&self) -> Result<(Config, OutputType)> {
         let limits = Limits::new(
             self.wall_time()?,
             self.user_time()?,
@@ -88,7 +94,7 @@ impl<'a> ArgMatches<'a> {
             self.pids_controller_path(),
         );
 
-        Ok(Config::new(
+        let config = Config::new(
             self.command()?,
             self.args(),
             self.new_root(),
@@ -99,7 +105,9 @@ impl<'a> ArgMatches<'a> {
             limits,
             self.instance_name(),
             controller_path,
-        ))
+        );
+
+        Ok((config, self.output_type()))
     }
 
     fn command(&self) -> Result<PathBuf> {
@@ -188,5 +196,14 @@ impl<'a> ArgMatches<'a> {
 
     fn pids_controller_path(&self) -> Option<PathBuf> {
         self.value_of_os("pids-path").map(PathBuf::from)
+    }
+
+    fn output_type(&self) -> OutputType {
+        match self.value_of("output").expect("output value") {
+            "human" => OutputType::Human,
+            "oneline" => OutputType::Oneline,
+            "json" => OutputType::Json,
+            _ => unreachable!(),
+        }
     }
 }
