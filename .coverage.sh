@@ -13,7 +13,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "nightly" ]]; th
     for file in $(find target/debug/deps -type f -name "integration_test-*" -not -name "*.d"); do
       echo "Running coverage on $file";
       mkdir -p "target/cov/$(basename $file)";
-      kcov --include-path $(pwd)/src --verify "target/cov/$(basename file)" "$file" || true;
+      kcov --include-path $(pwd)/src --verify "target/cov/$(basename file)" "$file" "--test-threads" 1 || true;
     done &&
     bash <(curl -s https://codecov.io/bash) &&
     echo "Uploaded code coverage"
