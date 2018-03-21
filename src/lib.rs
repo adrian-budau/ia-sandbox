@@ -66,6 +66,10 @@ pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
             ffi::remount_private()?;
 
             if let Some(new_root) = config.new_root() {
+                for mount in config.mounts() {
+                    ffi::mount_inside(new_root, mount)?;
+                }
+
                 ffi::pivot_root(new_root, || {
                     // Mount proc (since we are in a new pid namespace)
                     // Must be done after pivot_root so we mount this in the right location

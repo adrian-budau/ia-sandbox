@@ -20,7 +20,7 @@ use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_N
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use config::{Limits, ShareNet, SpaceUsage};
+use config::{Limits, Mount, ShareNet, SpaceUsage};
 use errors::{Error, FFIError};
 use run_info::{RunInfo, RunInfoResult, RunUsage};
 
@@ -199,6 +199,75 @@ pub fn remount_private() -> Result<()> {
     } else {
         Ok(())
     }
+}
+
+pub fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
+    // first create the folder (if it does not exist)
+    let inner_path = new_root.join(
+        mount
+            .destination()
+            .strip_prefix("/")
+            .unwrap_or(mount.destination()),
+    );
+    fs::create_dir_all(&inner_path).map_err(|error| FFIError::CreateDirError {
+        path: inner_path.to_path_buf(),
+        error: error.description().into(),
+    })?;
+
+    let source_c_string = os_str_to_c_string(mount.source());
+    let destination_c_string = os_str_to_c_string(&inner_path);
+
+    let mount_options = mount.mount_options();
+    let mut mount_flags = libc::MS_BIND | libc::MS_NOSUID;
+    if mount_options.read_only() {
+        mount_flags |= libc::MS_RDONLY;
+    }
+    if !mount_options.dev() {
+        mount_flags |= libc::MS_NODEV;
+    }
+
+    if !mount_options.exec() {
+        mount_flags |= libc::MS_NOEXEC;
+    }
+
+    let none = os_str_to_c_string("none");
+    let empty = os_str_to_c_string("");
+    // We need to mount twice for some mount flags to work (notably MS_RDONLY)
+    let res = unsafe {
+        libc::mount(
+            source_c_string.as_ptr(),
+            destination_c_string.as_ptr(),
+            none.as_ptr(),
+            mount_flags,
+            empty.as_ptr() as *const _,
+        )
+    };
+
+    if res == -1 {
+        return Err(FFIError::MountError {
+            path: mount.destination().to_path_buf(),
+            error: last_error_string(),
+        });
+    }
+
+    let res = unsafe {
+        libc::mount(
+            source_c_string.as_ptr(),
+            destination_c_string.as_ptr(),
+            none.as_ptr(),
+            libc::MS_REMOUNT | mount_flags,
+            empty.as_ptr() as *const _,
+        )
+    };
+
+    if res == -1 {
+        return Err(FFIError::MountError {
+            path: mount.destination().to_path_buf(),
+            error: last_error_string(),
+        });
+    }
+
+    Ok(())
 }
 
 const OLD_ROOT_NAME: &'static str = ".old_root";

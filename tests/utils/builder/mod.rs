@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use ia_sandbox::{self, Result};
-use ia_sandbox::config::{Config, Limits, ShareNet, SpaceUsage};
+use ia_sandbox::config::{Config, Limits, Mount, ShareNet, SpaceUsage};
 use ia_sandbox::run_info::RunInfo;
 
 pub struct ConfigBuilder {
@@ -16,6 +16,7 @@ pub struct ConfigBuilder {
     redirect_stderr: Option<PathBuf>,
     limits: Option<Limits>,
     instance_name: Option<OsString>,
+    mounts: Vec<Mount>,
 }
 
 impl ConfigBuilder {
@@ -30,6 +31,7 @@ impl ConfigBuilder {
             redirect_stderr: Some("/dev/null".into()),
             limits: None,
             instance_name: Some("test".into()),
+            mounts: vec![],
         }
     }
 
@@ -90,6 +92,11 @@ impl ConfigBuilder {
         self
     }
 
+    pub fn mount(&mut self, mount: Mount) -> &mut ConfigBuilder {
+        self.mounts.push(mount);
+        self
+    }
+
     pub fn build_and_run(&mut self) -> Result<RunInfo<()>> {
         let config = Config::new(
             self.command.clone(),
@@ -106,6 +113,7 @@ impl ConfigBuilder {
             self.limits.unwrap_or(Default::default()),
             self.instance_name.clone(),
             Default::default(),
+            self.mounts.clone(),
         );
 
         ia_sandbox::run_jail(config)

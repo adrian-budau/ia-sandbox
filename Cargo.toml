@@ -68,3 +68,8 @@ path = "test-fixtures/threads_allocate_20_megabytes.rs"
 required-features = ["integration-test"]
 name = "threads_loop_500_ms"
 path = "test-fixtures/threads_loop_500_ms.rs"
+
+[[bin]]
+required-features = ["integration-test"]
+name = "exit_with_arg_file"
+path = "test-fixtures/exit_with_arg_file.rs"

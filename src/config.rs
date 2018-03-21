@@ -53,7 +53,7 @@ impl SpaceUsage {
 impl Display for SpaceUsage {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         if self.0 % (1 << 30) == 0 {
-            write!(fmt, "{} g %ibibytes", self.0 >> 30)
+            write!(fmt, "{} gibibytes", self.0 >> 30)
         } else if self.0 % (1 << 20) == 0 {
             write!(fmt, "{} mebibytes", self.0 >> 20)
         } else if self.0 % (1 << 10) == 0 {
@@ -163,6 +163,78 @@ impl Default for ControllerPath {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub struct MountOptions {
+    read_only: bool,
+    dev: bool,
+    exec: bool,
+}
+
+impl MountOptions {
+    pub fn read_only(&self) -> bool {
+        self.read_only
+    }
+
+    pub fn dev(&self) -> bool {
+        self.dev
+    }
+
+    pub fn exec(&self) -> bool {
+        self.exec
+    }
+
+    pub fn set_read_only(&mut self, value: bool) {
+        self.read_only = value;
+    }
+
+    pub fn set_dev(&mut self, value: bool) {
+        self.dev = value;
+    }
+
+    pub fn set_exec(&mut self, value: bool) {
+        self.exec = value;
+    }
+}
+
+impl Default for MountOptions {
+    fn default() -> MountOptions {
+        MountOptions {
+            read_only: true,
+            dev: false,
+            exec: false,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct Mount {
+    source: PathBuf,
+    destination: PathBuf,
+    mount_options: MountOptions,
+}
+
+impl Mount {
+    pub fn new(source: PathBuf, destination: PathBuf, mount_options: MountOptions) -> Mount {
+        Mount {
+            source,
+            destination,
+            mount_options,
+        }
+    }
+
+    pub fn source(&self) -> &Path {
+        &self.source
+    }
+
+    pub fn destination(&self) -> &Path {
+        &self.destination
+    }
+
+    pub fn mount_options(&self) -> MountOptions {
+        self.mount_options
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Config {
     command: PathBuf,
@@ -175,6 +247,7 @@ pub struct Config {
     limits: Limits,
     instance_name: Option<OsString>,
     controller_path: ControllerPath,
+    mounts: Vec<Mount>,
 }
 
 impl Config {
@@ -189,6 +262,7 @@ impl Config {
         limits: Limits,
         instance_name: Option<OsString>,
         controller_path: ControllerPath,
+        mounts: Vec<Mount>,
     ) -> Config {
         Config {
             command,
@@ -201,6 +275,7 @@ impl Config {
             limits,
             instance_name,
             controller_path,
+            mounts,
         }
     }
 
@@ -253,5 +328,9 @@ impl Config {
 
     pub fn controller_path(&self) -> &ControllerPath {
         &self.controller_path
+    }
+
+    pub fn mounts(&self) -> &[Mount] {
+        self.mounts.as_ref()
     }
 }

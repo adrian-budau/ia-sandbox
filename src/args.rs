@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::result;
 use std::time::Duration;
 
-use ia_sandbox::config::{Config, ControllerPath, Limits, ShareNet, SpaceUsage};
+use ia_sandbox::config::{Config, ControllerPath, Limits, Mount, MountOptions, ShareNet, SpaceUsage};
 
 use app;
 use clap;
@@ -71,6 +71,48 @@ fn parse_space_usage(string: &str) -> Result<SpaceUsage> {
     }
 }
 
+fn parse_mount_options(string: &str) -> Result<MountOptions> {
+    let mut mount_options = MountOptions::default();
+
+    for option in string.split(',') {
+        match option {
+            "rw" => mount_options.set_read_only(false),
+            "dev" => mount_options.set_dev(true),
+            "exec" => mount_options.set_exec(true),
+            _ => {
+                return Err(format_err!(
+                    "Could not parse mount option, unrecognized `{}`",
+                    option
+                ))
+            }
+        }
+    }
+    Ok(mount_options)
+}
+
+fn parse_mount(string: &str) -> Result<Mount> {
+    let parts: Vec<&str> = string.split(':').collect();
+
+    match parts.as_slice() {
+        &[source] => Ok(Mount::new(
+            PathBuf::from(source),
+            PathBuf::from(source),
+            MountOptions::default(),
+        )),
+        &[source, destination] => Ok(Mount::new(
+            PathBuf::from(source),
+            PathBuf::from(destination),
+            MountOptions::default(),
+        )),
+        &[source, destination, options] => Ok(Mount::new(
+            PathBuf::from(source),
+            PathBuf::from(destination),
+            parse_mount_options(options)?,
+        )),
+        _ => Err(format_err!("Could not parse mount")),
+    }
+}
+
 fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
     match arg {
         None => Ok(None),
@@ -105,6 +147,7 @@ impl<'a> ArgMatches<'a> {
             limits,
             self.instance_name(),
             controller_path,
+            self.mounts()?,
         );
 
         Ok((config, self.output_type()))
@@ -204,6 +247,13 @@ impl<'a> ArgMatches<'a> {
             "oneline" => OutputType::Oneline,
             "json" => OutputType::Json,
             _ => unreachable!(),
+        }
+    }
+
+    fn mounts(&self) -> Result<Vec<Mount>> {
+        match self.values_of("mount") {
+            None => Ok(vec![]),
+            Some(args) => args.map(parse_mount).collect(),
         }
     }
 }

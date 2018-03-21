@@ -1,12 +1,15 @@
 extern crate ia_sandbox;
 extern crate tempdir;
 
+use std::fs::File;
+use std::io::Write;
 use std::time::Duration;
 
-use ia_sandbox::config::SpaceUsage;
+use ia_sandbox::config::{Mount, MountOptions, SpaceUsage};
 use ia_sandbox::errors::{ChildError, Error, FFIError};
 
-#[macro_use]
+use tempdir::TempDir;
+
 mod utils;
 use utils::{LimitsBuilder, PivotRoot, RunInfoExt, TestRunnerHelper};
 use utils::matchers::{CompareLimits, IsSuccess, KilledBySignal, MemoryLimitExceeded,
@@ -30,6 +33,8 @@ const ALLOCATE_20_MEGABYTES: &'static str = "./target/release/allocate_20_megaby
 
 const THREADS_ALLOCATE_20_MEGABYTES: &'static str =
     "./target/release/threads_allocate_20_megabytes";
+
+const EXIT_WITH_ARG_FILE: &'static str = "./target/release/exit_with_arg_file";
 
 #[test]
 fn test_basic_sandbox() {
@@ -338,4 +343,24 @@ fn test_pids_limit_exceeded() {
         .build_and_run()
         .unwrap()
         .assert(CompareLimits::new(NonZeroExitStatus::any(), limits));
+}
+
+#[test]
+fn test_mount_directory() {
+    let temp_dir = TempDir::new("test_mount_directory_special").unwrap();
+    let input_path = temp_dir.path().join("input");
+    let mut file = File::create(&input_path).unwrap();
+    let _ = file.write("15\n".as_bytes()).unwrap();
+
+    TestRunnerHelper::for_simple_exec("test_mount_directory", EXIT_WITH_ARG_FILE, PivotRoot::Pivot)
+        .config_builder()
+        .mount(Mount::new(
+            temp_dir.path().into(),
+            "/mount".into(),
+            MountOptions::default(),
+        ))
+        .arg("/mount/input")
+        .build_and_run()
+        .unwrap()
+        .assert(NonZeroExitStatus::new(15));
 }

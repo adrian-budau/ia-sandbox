@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 
 use ia_sandbox::run_info::RunInfo;
 
-use tempdir;
+use tempdir::TempDir;
 
 mod builder;
 pub use self::builder::{ConfigBuilder, LimitsBuilder};
@@ -66,7 +66,7 @@ pub enum PivotRoot {
 
 pub struct TestRunnerHelper<'a> {
     test_name: &'a str,
-    temp_dir: tempdir::TempDir,
+    temp_dir: TempDir,
     config_builder: ConfigBuilder,
 }
 
@@ -76,7 +76,7 @@ impl<'a> TestRunnerHelper<'a> {
         exec_path: T,
         pivot_root: PivotRoot,
     ) -> TestRunnerHelper {
-        let temp_dir = tempdir::TempDir::new(test_name).unwrap();
+        let temp_dir = TempDir::new(test_name).unwrap();
         let exec_path = exec_path.as_ref();
 
         fs::copy(

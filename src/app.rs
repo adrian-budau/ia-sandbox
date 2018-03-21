@@ -199,4 +199,23 @@ pub fn app() -> App<'static, 'static> {
                      json - a single json object with 4 fields\n",
                 ),
         )
+        .arg(
+            Arg::with_name("mount")
+                .long("mount")
+                .multiple(true)
+                .number_of_values(1)
+                .requires("new-root")
+                .help("which files/folders to mount inside the new root")
+                .long_help(
+                    "which files/folders to mount inside the new root.\n\
+                     Given in any of the following 3 forms:\n\
+                     - source:destination:mount_options\n\
+                     - source:destination (equivalent to source:destination:ro,noexec,)\n\
+                     - source (equivalent to source:source)\n\
+                     Mount options are given as a comma separated list of the following:\n\
+                     - rw, default is to mount read-only\n\
+                     - exec, default is to mount with no exec permissions\n\
+                     - dev, default is to mount with no access to devices\n",
+                ),
+        )
 }
