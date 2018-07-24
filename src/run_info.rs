@@ -16,8 +16,8 @@ pub enum RunInfoResult<T> {
 
 impl<T> RunInfoResult<T> {
     pub fn is_success(&self) -> bool {
-        match self {
-            &RunInfoResult::Success(_) => true,
+        match *self {
+            RunInfoResult::Success(_) => true,
             _ => false,
         }
     }
@@ -48,15 +48,15 @@ impl<T> RunInfoResult<T> {
 
 impl<T> Display for RunInfoResult<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            &RunInfoResult::Success(_) => write!(f, "Success"),
-            &RunInfoResult::NonZeroExitStatus(ref exit_code) => {
+        match *self {
+            RunInfoResult::Success(_) => write!(f, "Success"),
+            RunInfoResult::NonZeroExitStatus(ref exit_code) => {
                 write!(f, "Non zero exit status: {}", exit_code)
             }
-            &RunInfoResult::KilledBySignal(ref signal) => write!(f, "Killed by Signal {}", signal),
-            &RunInfoResult::MemoryLimitExceeded => write!(f, "Memory limit exceeded"),
-            &RunInfoResult::TimeLimitExceeded => write!(f, "Time limit exceeded"),
-            &RunInfoResult::WallTimeLimitExceeded => write!(f, "Wall time limit exceeded"),
+            RunInfoResult::KilledBySignal(ref signal) => write!(f, "Killed by Signal {}", signal),
+            RunInfoResult::MemoryLimitExceeded => write!(f, "Memory limit exceeded"),
+            RunInfoResult::TimeLimitExceeded => write!(f, "Time limit exceeded"),
+            RunInfoResult::WallTimeLimitExceeded => write!(f, "Wall time limit exceeded"),
         }
     }
 }

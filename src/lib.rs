@@ -3,9 +3,11 @@
 #![feature(duration_extras)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
-#![deny(missing_copy_implementations, missing_debug_implementations, trivial_casts,
-        trivial_numeric_casts, unused_extern_crates, unused_import_braces, unused_qualifications,
-        unused_results, variant_size_differences, warnings)]
+#![deny(
+    missing_copy_implementations, missing_debug_implementations, trivial_casts,
+    trivial_numeric_casts, unused_extern_crates, unused_import_braces, unused_qualifications,
+    unused_results, variant_size_differences, warnings
+)]
 
 extern crate bincode;
 #[macro_use]
@@ -15,18 +17,18 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-pub mod utils;
-pub mod errors;
-pub mod run_info;
-pub mod config;
-mod ffi;
 mod cgroups;
+pub mod config;
+pub mod errors;
+mod ffi;
+pub mod run_info;
+pub mod utils;
 
 use config::{Config, Limits, ShareNet};
 pub use errors::*;
 use run_info::{RunInfo, RunUsage};
 
-pub fn run_jail(config: Config) -> Result<RunInfo<()>> {
+pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
     let user_group_id = ffi::get_user_group_id();
 
     ffi::set_sig_alarm_handler().map_err(Error::FFIError)?;

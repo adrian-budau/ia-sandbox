@@ -10,12 +10,12 @@ fn main() {
             continue;
         }
         steps = 0;
-        let mut usage: libc::rusage = unsafe { mem::zeroed() };
+        let mut usage: libc::timespec = unsafe { mem::zeroed() };
         unsafe {
-            libc::getrusage(libc::RUSAGE_THREAD, &mut usage);
+            libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut usage);
         }
-        let us = usage.ru_utime.tv_sec * 1000000 + usage.ru_utime.tv_usec;
-        if us >= 500000 {
+        let us = i64::from(usage.tv_sec) * 1_000_000_000 + i64::from(usage.tv_nsec);
+        if us >= 500_000_000 {
             break;
         }
     }

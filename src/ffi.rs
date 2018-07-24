@@ -15,10 +15,12 @@ use std::result::Result as StdResult;
 use std::time::{Duration, Instant};
 
 use bincode;
-use libc::{self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
-           CLONE_VFORK, SIGCHLD};
-use serde::Serialize;
+use libc::{
+    self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS, CLONE_VFORK,
+    SIGCHLD,
+};
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use config::{Limits, Mount, ShareNet, SpaceUsage};
 use errors::{Error, FFIError};
@@ -27,7 +29,7 @@ use run_info::{RunInfo, RunInfoResult, RunUsage};
 type Result<T> = StdResult<T, FFIError>;
 
 const DEFAULT_STACK_SIZE: usize = 256 * 1024;
-const CLONE_NEWNET: libc::c_int = 0x40000000;
+const CLONE_NEWNET: libc::c_int = 0x40_000_000;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct UserId(libc::uid_t);
@@ -91,7 +93,7 @@ pub fn set_sig_alarm_handler() -> Result<()> {
     sigaction.sa_sigaction =
         unsafe { mem::transmute::<_, libc::sighandler_t>(handler as extern "C" fn(_, _, _)) };
     let _ = unsafe { libc::sigemptyset(&mut sigaction.sa_mask) };
-    if unsafe { libc::sigaction(libc::SIGALRM, &mut sigaction, ptr::null_mut()) } == -1 {
+    if unsafe { libc::sigaction(libc::SIGALRM, &sigaction, ptr::null_mut()) } == -1 {
         Err(FFIError::SigActionError {
             signal: "SIGALRM".into(),
             error: last_error_string(),
@@ -136,8 +138,13 @@ where
     F: FnOnce() -> T + Send,
     T: Serialize,
 {
-    let mut clone_flags = CLONE_NEWUSER | CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS
-        | CLONE_VFORK | SIGCHLD;
+    let mut clone_flags = CLONE_NEWUSER
+        | CLONE_NEWPID
+        | CLONE_NEWIPC
+        | CLONE_NEWUTS
+        | CLONE_NEWNS
+        | CLONE_VFORK
+        | SIGCHLD;
     if share_net == ShareNet::Unshare {
         clone_flags |= CLONE_NEWNET;
     }
@@ -147,7 +154,7 @@ where
     extern "C" fn cb(arg: *mut libc::c_void) -> libc::c_int {
         unsafe { Box::from_raw(arg as *mut Box<FnBox()>)() };
 
-        return 0;
+        0
     }
 
     let (read_error_pipe, mut write_error_pipe) = make_pipe()?;
@@ -207,7 +214,7 @@ pub fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
         mount
             .destination()
             .strip_prefix("/")
-            .unwrap_or(mount.destination()),
+            .unwrap_or_else(|_| mount.destination()),
     );
     fs::create_dir_all(&inner_path).map_err(|error| FFIError::CreateDirError {
         path: inner_path.to_path_buf(),
@@ -270,7 +277,7 @@ pub fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
     Ok(())
 }
 
-const OLD_ROOT_NAME: &'static str = ".old_root";
+const OLD_ROOT_NAME: &str = ".old_root";
 pub fn pivot_root<F>(new_root: &Path, before_umount: F) -> Result<()>
 where
     F: FnOnce() -> Result<()>,
@@ -365,7 +372,7 @@ pub fn mount_proc() -> Result<()> {
 
     if res == -1 {
         Err(FFIError::MountError {
-            path: path,
+            path,
             error: last_error_string(),
         })
     } else {
@@ -418,21 +425,21 @@ pub fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
 
 pub struct Fd(libc::c_int, &'static str, libc::c_int, libc::c_int);
 
-pub const STDIN: Fd = Fd(0, "stdin", libc::O_RDONLY, 0);
-pub const STDOUT: Fd = Fd(
+pub const STDIN: &Fd = &Fd(0, "stdin", libc::O_RDONLY, 0);
+pub const STDOUT: &Fd = &Fd(
     1,
     "stdout",
     libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
     0o666,
 );
-pub const STDERR: Fd = Fd(
+pub const STDERR: &Fd = &Fd(
     2,
     "stderr",
     libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
     0o666,
 );
 
-pub fn redirect_fd(fd: Fd, path: &Path) -> Result<()> {
+pub fn redirect_fd(fd: &Fd, path: &Path) -> Result<()> {
     if unsafe { libc::close(fd.0) } == -1 {
         return Err(FFIError::CloseFdError {
             fd: fd.0,
@@ -599,7 +606,7 @@ impl<T: DeserializeOwned> CloneHandle<T> {
         let _ = self.read_error_pipe
             .read_to_end(&mut data)
             .map_err(|err| Error::DeserializeError(err.description().into()))?;
-        let result = if data.len() > 0 {
+        let result = if !data.is_empty() {
             Some(bincode::deserialize(&data)
                 .map_err(|err| Error::DeserializeError(err.description().into()))?)
         } else {

@@ -57,10 +57,8 @@ impl Matcher for NonZeroExitStatus {
     }
 
     fn try_match(&self, run_info: RunInfo<()>) -> Result<(), Self::Output> {
-        match run_info.result() {
-            &RunInfoResult::NonZeroExitStatus(x) if self.0.map(|y| x == y).unwrap_or(true) => {
-                Ok(())
-            }
+        match *run_info.result() {
+            RunInfoResult::NonZeroExitStatus(x) if self.0.map(|y| x == y).unwrap_or(true) => Ok(()),
             _ => Err(run_info),
         }
     }
@@ -78,8 +76,8 @@ impl Matcher for KilledBySignal {
     }
 
     fn try_match(&self, run_info: RunInfo<()>) -> Result<(), Self::Output> {
-        match run_info.result() {
-            &RunInfoResult::KilledBySignal(x) if x == self.0 => Ok(()),
+        match *run_info.result() {
+            RunInfoResult::KilledBySignal(x) if x == self.0 => Ok(()),
             _ => Err(run_info),
         }
     }
@@ -96,8 +94,8 @@ impl Matcher for WallTimeLimitExceeded {
     }
 
     fn try_match(&self, run_info: RunInfo<()>) -> Result<(), Self::Output> {
-        match run_info.result() {
-            &RunInfoResult::WallTimeLimitExceeded => Ok(()),
+        match *run_info.result() {
+            RunInfoResult::WallTimeLimitExceeded => Ok(()),
             _ => Err(run_info),
         }
     }
@@ -114,8 +112,8 @@ impl Matcher for TimeLimitExceeded {
     }
 
     fn try_match(&self, run_info: RunInfo<()>) -> Result<(), Self::Output> {
-        match run_info.result() {
-            &RunInfoResult::TimeLimitExceeded => Ok(()),
+        match *run_info.result() {
+            RunInfoResult::TimeLimitExceeded => Ok(()),
             _ => Err(run_info),
         }
     }
@@ -132,8 +130,8 @@ impl Matcher for MemoryLimitExceeded {
     }
 
     fn try_match(&self, run_info: RunInfo<()>) -> Result<(), Self::Output> {
-        match run_info.result() {
-            &RunInfoResult::MemoryLimitExceeded => Ok(()),
+        match *run_info.result() {
+            RunInfoResult::MemoryLimitExceeded => Ok(()),
             _ => Err(run_info),
         }
     }

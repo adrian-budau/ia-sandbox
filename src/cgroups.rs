@@ -75,9 +75,9 @@ pub fn enter_cgroup(controller_path: &Path) -> Result<()> {
     cgroup_write(controller_path, "tasks", format!("{}\n", ffi::getpid()))
 }
 
-const DEFAULT_INSTANCE_NAME: &'static str = "default";
+const DEFAULT_INSTANCE_NAME: &str = "default";
 fn get_instance_path(controller_path: &Path, instance_name: Option<&OsStr>) -> Result<PathBuf> {
-    let instance = instance_name.unwrap_or(OsStr::new(DEFAULT_INSTANCE_NAME));
+    let instance = instance_name.unwrap_or_else(|| OsStr::new(DEFAULT_INSTANCE_NAME));
     if !controller_path.exists() {
         return Err(CGroupError::ControllerMissing(
             controller_path.to_path_buf(),
@@ -95,20 +95,20 @@ fn get_instance_path(controller_path: &Path, instance_name: Option<&OsStr>) -> R
     Ok(instance_path)
 }
 
-const CPUACCT_DEFAULT_CONTROLLER_PATH: &'static str = "/sys/fs/cgroup/cpuacct/ia-sandbox";
+const CPUACCT_DEFAULT_CONTROLLER_PATH: &str = "/sys/fs/cgroup/cpuacct/ia-sandbox";
 pub fn enter_cpuacct_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
 ) -> Result<()> {
     let instance_path = get_instance_path(
-        controller_path.unwrap_or(Path::new(CPUACCT_DEFAULT_CONTROLLER_PATH)),
+        controller_path.unwrap_or_else(|| Path::new(CPUACCT_DEFAULT_CONTROLLER_PATH)),
         instance_name,
     )?;
     cgroup_write(&instance_path, "cpuacct.usage", "0\n")?;
     enter_cgroup(&instance_path)
 }
 
-const MEMORY_DEFAULT_CONTROLLER_PATH: &'static str = "/sys/fs/cgroup/memory/ia-sandbox";
+const MEMORY_DEFAULT_CONTROLLER_PATH: &str = "/sys/fs/cgroup/memory/ia-sandbox";
 const EXTRA_MEMORY_GIVEN: u64 = 16 * 1_024;
 pub fn enter_memory_cgroup(
     controller_path: Option<&Path>,
@@ -116,7 +116,7 @@ pub fn enter_memory_cgroup(
     memory_limit: Option<SpaceUsage>,
 ) -> Result<()> {
     let instance_path = get_instance_path(
-        controller_path.unwrap_or(Path::new(MEMORY_DEFAULT_CONTROLLER_PATH)),
+        controller_path.unwrap_or_else(|| Path::new(MEMORY_DEFAULT_CONTROLLER_PATH)),
         instance_name,
     )?;
     cgroup_write(&instance_path, "memory.max_usage_in_bytes", "0\n")?;
@@ -144,14 +144,14 @@ pub fn enter_memory_cgroup(
     enter_cgroup(&instance_path)
 }
 
-const PIDS_DEFAULT_CONTROLLER_PATH: &'static str = "/sys/fs/cgroup/pids/ia-sandbox";
+const PIDS_DEFAULT_CONTROLLER_PATH: &str = "/sys/fs/cgroup/pids/ia-sandbox";
 pub fn enter_pids_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
     pids_limit: Option<usize>,
 ) -> Result<()> {
     let instance_path = get_instance_path(
-        controller_path.unwrap_or(Path::new(PIDS_DEFAULT_CONTROLLER_PATH)),
+        controller_path.unwrap_or_else(|| Path::new(PIDS_DEFAULT_CONTROLLER_PATH)),
         instance_name,
     )?;
 
@@ -181,11 +181,11 @@ pub fn get_usage(
 ) -> Result<RunUsage> {
     let cpuacct_controller_path = controller_path
         .cpuacct()
-        .unwrap_or(Path::new(CPUACCT_DEFAULT_CONTROLLER_PATH));
+        .unwrap_or_else(|| Path::new(CPUACCT_DEFAULT_CONTROLLER_PATH));
     let memory_controller_path = controller_path
         .memory()
-        .unwrap_or(Path::new(MEMORY_DEFAULT_CONTROLLER_PATH));
-    let instance = instance_name.unwrap_or(OsStr::new(DEFAULT_INSTANCE_NAME));
+        .unwrap_or_else(|| Path::new(MEMORY_DEFAULT_CONTROLLER_PATH));
+    let instance = instance_name.unwrap_or_else(|| OsStr::new(DEFAULT_INSTANCE_NAME));
 
     let cpuacct_instance_path = cpuacct_controller_path.join(instance);
     let user_time = Duration::from_nanos(cgroup_read(&cpuacct_instance_path, "cpuacct.usage")?);

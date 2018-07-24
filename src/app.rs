@@ -1,16 +1,16 @@
 use clap::{App, AppSettings, Arg};
 
-const ABOUT: &'static str = "
+const ABOUT: &str = "
 ia-sandbox sandboxes applications for secure running of executables";
 
-const LONG_ABOUT: &'static str = "
+const LONG_ABOUT: &str = "
 ia-sandbox sandboxes applications for secure running of executables
 
 ia-sandbox uses cgroups, namespaces, pivot_root and other techniques to
 guarantee security. It is designed to be used for online judges and in
 particular infoarena.ro";
 
-const ARGS_AFTER_HELP: &'static str = "
+const ARGS_AFTER_HELP: &str = "
 All of the trailing arguments are passed to the command to run. If you're passing
 arguments to both ia-sandbox and the binary, the ones after `--` go to the command,
 the ones before go to ia-sandbox.";

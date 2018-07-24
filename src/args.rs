@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::result;
 use std::time::Duration;
 
-use ia_sandbox::config::{Config, ControllerPath, Limits, Mount, MountOptions, ShareNet, SpaceUsage};
+use ia_sandbox::config::{
+    Config, ControllerPath, Limits, Mount, MountOptions, ShareNet, SpaceUsage,
+};
 
 use app;
 use clap;
@@ -33,10 +35,9 @@ impl<'a> ops::Deref for ArgMatches<'a> {
 }
 
 fn parse_duration(string: &str) -> Result<Duration> {
-    let number_index = string.find(|c: char| !c.is_digit(10)).ok_or(format_err!(
-        "Could not find duration suffix (s/ns/ms): {}",
-        string
-    ))?;
+    let number_index = string
+        .find(|c: char| !c.is_digit(10))
+        .ok_or_else(|| format_err!("Could not find duration suffix (s/ns/ms): {}", string))?;
     let (number, suffix) = string.split_at(number_index);
     let number = number
         .parse::<u64>()
@@ -45,15 +46,17 @@ fn parse_duration(string: &str) -> Result<Duration> {
         "ns" => Ok(Duration::from_nanos(number)),
         "ms" => Ok(Duration::from_millis(number)),
         "s" => Ok(Duration::from_secs(number)),
-        suffix => Err(format_err!("Unrecognized suffix: {}", suffix).into()),
+        suffix => Err(format_err!("Unrecognized suffix: {}", suffix)),
     }
 }
 
 fn parse_space_usage(string: &str) -> Result<SpaceUsage> {
-    let number_index = string.find(|c: char| !c.is_digit(10)).ok_or(format_err!(
-        "Could not find duration suffix (b/kb/mb/gb/kib/mib/gib): {}",
-        string
-    ))?;
+    let number_index = string.find(|c: char| !c.is_digit(10)).ok_or_else(|| {
+        format_err!(
+            "Could not find duration suffix (b/kb/mb/gb/kib/mib/gib): {}",
+            string
+        )
+    })?;
 
     let (number, suffix) = string.split_at(number_index);
     let number = number
@@ -67,7 +70,7 @@ fn parse_space_usage(string: &str) -> Result<SpaceUsage> {
         "kib" => Ok(SpaceUsage::from_kibibytes(number)),
         "mib" => Ok(SpaceUsage::from_mebibytes(number)),
         "gib" => Ok(SpaceUsage::from_gibibytes(number)),
-        suffix => Err(format_err!("Unrecognized suffix: {}", suffix).into()),
+        suffix => Err(format_err!("Unrecognized suffix: {}", suffix)),
     }
 }
 
@@ -93,18 +96,18 @@ fn parse_mount_options(string: &str) -> Result<MountOptions> {
 fn parse_mount(string: &str) -> Result<Mount> {
     let parts: Vec<&str> = string.split(':').collect();
 
-    match parts.as_slice() {
-        &[source] => Ok(Mount::new(
+    match *parts.as_slice() {
+        [source] => Ok(Mount::new(
             PathBuf::from(source),
             PathBuf::from(source),
             MountOptions::default(),
         )),
-        &[source, destination] => Ok(Mount::new(
+        [source, destination] => Ok(Mount::new(
             PathBuf::from(source),
             PathBuf::from(destination),
             MountOptions::default(),
         )),
-        &[source, destination, options] => Ok(Mount::new(
+        [source, destination, options] => Ok(Mount::new(
             PathBuf::from(source),
             PathBuf::from(destination),
             parse_mount_options(options)?,
@@ -155,7 +158,7 @@ impl<'a> ArgMatches<'a> {
 
     fn command(&self) -> Result<PathBuf> {
         self.value_of_os("COMMAND")
-            .ok_or(format_err!("No command was specified"))
+            .ok_or_else(|| format_err!("No command was specified"))
             .map(PathBuf::from)
     }
 
@@ -171,9 +174,10 @@ impl<'a> ArgMatches<'a> {
     }
 
     fn share_net(&self) -> ShareNet {
-        match self.is_present("share-net") {
-            true => ShareNet::Share,
-            false => ShareNet::Unshare,
+        if self.is_present("share-net") {
+            ShareNet::Share
+        } else {
+            ShareNet::Unshare
         }
     }
 

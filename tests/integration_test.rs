@@ -11,30 +11,33 @@ use ia_sandbox::errors::{ChildError, Error, FFIError};
 use tempdir::TempDir;
 
 mod utils;
+use utils::matchers::{
+    CompareLimits, IsSuccess, KilledBySignal, MemoryLimitExceeded, NonZeroExitStatus,
+    TimeLimitExceeded, WallTimeLimitExceeded,
+};
 use utils::{LimitsBuilder, PivotRoot, RunInfoExt, TestRunnerHelper};
-use utils::matchers::{CompareLimits, IsSuccess, KilledBySignal, MemoryLimitExceeded,
-                      NonZeroExitStatus, TimeLimitExceeded, WallTimeLimitExceeded};
 
-const HELLO_WORLD: &'static str = "./target/release/hello_world";
+const HELLO_WORLD: &str = "./target/release/hello_world";
 
-const EXIT_WITH_INPUT: &'static str = "./target/release/exit_with_input";
+const EXIT_WITH_INPUT: &str = "./target/release/exit_with_input";
 
-const EXIT_WITH_LAST_ARGUMENT: &'static str = "./target/release/exit_with_last_argument";
+const EXIT_WITH_LAST_ARGUMENT: &str = "./target/release/exit_with_last_argument";
 
-const KILL_WITH_SIGNAL_ARG: &'static str = "./target/debug/kill_with_signal_arg";
+const KILL_WITH_SIGNAL_ARG: &str = "./target/debug/kill_with_signal_arg";
 
-const SLEEP_2_SECOND: &'static str = "./target/release/sleep_2_seconds";
+const SLEEP_1_SECOND: &str = "./target/release/sleep_1_second";
 
-const LOOP_500_MS: &'static str = "./target/release/loop_500_ms";
+const LOOP_500_MS: &str = "./target/release/loop_500_ms";
 
-const THREADS_LOOP_500_MS: &'static str = "./target/release/threads_loop_500_ms";
+const THREADS_LOOP_500_MS: &str = "./target/release/threads_loop_500_ms";
 
-const ALLOCATE_20_MEGABYTES: &'static str = "./target/release/allocate_20_megabytes";
+const ALLOCATE_20_MEGABYTES: &str = "./target/release/allocate_20_megabytes";
 
-const THREADS_ALLOCATE_20_MEGABYTES: &'static str =
-    "./target/release/threads_allocate_20_megabytes";
+const THREADS_ALLOCATE_20_MEGABYTES: &str = "./target/release/threads_allocate_20_megabytes";
 
-const EXIT_WITH_ARG_FILE: &'static str = "./target/release/exit_with_arg_file";
+const THREADS_SLEEP_1_SECOND: &str = "./target/release/threads_sleep_1_second";
+
+const EXIT_WITH_ARG_FILE: &str = "./target/release/exit_with_arg_file";
 
 #[test]
 fn test_basic_sandbox() {
@@ -174,11 +177,11 @@ fn test_killed_by_signal() {
 #[test]
 fn test_wall_time_limit_exceeded() {
     let mut limits = LimitsBuilder::new();
-    limits.wall_time(Duration::from_millis(2200));
+    limits.wall_time(Duration::from_millis(1200));
 
     TestRunnerHelper::for_simple_exec(
         "test_wall_time_limit_exceeded",
-        SLEEP_2_SECOND,
+        SLEEP_1_SECOND,
         PivotRoot::Pivot,
     ).config_builder()
         .limits(limits)
@@ -186,10 +189,10 @@ fn test_wall_time_limit_exceeded() {
         .unwrap()
         .assert(CompareLimits::new(IsSuccess, limits));
 
-    limits.wall_time(Duration::from_millis(1800));
+    limits.wall_time(Duration::from_millis(800));
     TestRunnerHelper::for_simple_exec(
         "test_wall_time_limit_exceeded",
-        SLEEP_2_SECOND,
+        SLEEP_1_SECOND,
         PivotRoot::Pivot,
     ).config_builder()
         .limits(limits)
@@ -249,19 +252,28 @@ fn test_threads_time_limit_exceeded() {
 #[test]
 fn test_threads_wall_time_limit_exceeded() {
     let mut limits = LimitsBuilder::new();
-    limits
-        .wall_time(Duration::from_millis(1000))
-        .user_time(Duration::from_millis(600));
+    limits.wall_time(Duration::from_millis(1200));
 
     TestRunnerHelper::for_simple_exec(
         "test_threads_wall_time_limit_exceeded",
-        THREADS_LOOP_500_MS,
+        THREADS_SLEEP_1_SECOND,
         PivotRoot::Pivot,
     ).config_builder()
         .limits(limits)
         .build_and_run()
         .unwrap()
         .assert(CompareLimits::new(IsSuccess, limits));
+
+    limits.wall_time(Duration::from_millis(800));
+    TestRunnerHelper::for_simple_exec(
+        "test_threads_wall_time_limit_exceeded",
+        THREADS_SLEEP_1_SECOND,
+        PivotRoot::Pivot,
+    ).config_builder()
+        .limits(limits)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(WallTimeLimitExceeded, limits));
 }
 
 #[test]
@@ -350,7 +362,7 @@ fn test_mount_directory() {
     let temp_dir = TempDir::new("test_mount_directory_special").unwrap();
     let input_path = temp_dir.path().join("input");
     let mut file = File::create(&input_path).unwrap();
-    let _ = file.write("15\n".as_bytes()).unwrap();
+    let _ = file.write(b"15\n").unwrap();
 
     TestRunnerHelper::for_simple_exec("test_mount_directory", EXIT_WITH_ARG_FILE, PivotRoot::Pivot)
         .config_builder()

@@ -35,13 +35,26 @@ where
                 .collect::<Vec<_>>()
         })
         .filter_map(|token| {
-            if token.starts_with("/") {
+            if token.starts_with('/') {
                 Some(token.into())
             } else {
                 None
             }
         })
         .collect()
+}
+
+// Until https://marc.info/?l=linux-kernel&m=150834137201488 gets resolved, we can't
+// use fs::copy on libs/executables
+fn copy_by_command<T1: AsRef<Path>, T2: AsRef<Path>>(from: T1, to: T2) {
+    assert!(
+        Command::new("cp")
+            .arg(from.as_ref())
+            .arg(to.as_ref())
+            .status()
+            .expect("failed to copy")
+            .success()
+    );
 }
 
 fn copy_libs<T1, T2>(file: T1, path: T2)
@@ -54,7 +67,7 @@ where
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent).unwrap();
         }
-        fs::copy(&lib, destination).unwrap();
+        copy_by_command(&lib, destination);
     }
 }
 
@@ -79,10 +92,10 @@ impl<'a> TestRunnerHelper<'a> {
         let temp_dir = TempDir::new(test_name).unwrap();
         let exec_path = exec_path.as_ref();
 
-        fs::copy(
+        copy_by_command(
             exec_path,
             temp_dir.path().join(exec_path.file_name().unwrap()),
-        ).unwrap();
+        );
         if pivot_root == PivotRoot::Pivot {
             copy_libs(exec_path, temp_dir.path());
         }
@@ -115,7 +128,7 @@ impl<'a> TestRunnerHelper<'a> {
 
     pub fn write_file<T: AsRef<Path>>(&mut self, path: T, data: &[u8]) {
         let mut file = File::create(self.file_path(path)).unwrap();
-        file.write(data).unwrap();
+        file.write_all(data).unwrap();
     }
 
     pub fn read_line<T: AsRef<Path>>(&mut self, path: T) -> String {

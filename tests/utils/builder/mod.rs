@@ -2,9 +2,9 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use ia_sandbox::{self, Result};
 use ia_sandbox::config::{Config, Limits, Mount, ShareNet, SpaceUsage};
 use ia_sandbox::run_info::RunInfo;
+use ia_sandbox::{self, Result};
 
 pub struct ConfigBuilder {
     command: PathBuf,
@@ -50,7 +50,7 @@ impl ConfigBuilder {
         I: IntoIterator<Item = T>,
         T: AsRef<OsStr>,
     {
-        for arg in args.into_iter() {
+        for arg in args {
             self.arg(arg);
         }
 
@@ -110,17 +110,17 @@ impl ConfigBuilder {
             self.redirect_stdin.clone(),
             self.redirect_stdout.clone(),
             self.redirect_stderr.clone(),
-            self.limits.unwrap_or(Default::default()),
+            self.limits.unwrap_or_default(),
             self.instance_name.clone(),
             Default::default(),
             self.mounts.clone(),
         );
 
-        ia_sandbox::run_jail(config)
+        ia_sandbox::run_jail(&config)
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct LimitsBuilder {
     wall_time: Option<Duration>,
     user_time: Option<Duration>,

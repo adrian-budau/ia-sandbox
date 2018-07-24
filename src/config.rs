@@ -41,11 +41,11 @@ impl SpaceUsage {
         SpaceUsage::from_mebibytes(gibibytes * 1_024)
     }
 
-    pub fn as_bytes(&self) -> u64 {
+    pub fn as_bytes(self) -> u64 {
         self.0
     }
 
-    pub fn as_kilobytes(&self) -> u64 {
+    pub fn as_kilobytes(self) -> u64 {
         self.0 / 1_000
     }
 }
@@ -171,15 +171,15 @@ pub struct MountOptions {
 }
 
 impl MountOptions {
-    pub fn read_only(&self) -> bool {
+    pub fn read_only(self) -> bool {
         self.read_only
     }
 
-    pub fn dev(&self) -> bool {
+    pub fn dev(self) -> bool {
         self.dev
     }
 
-    pub fn exec(&self) -> bool {
+    pub fn exec(self) -> bool {
         self.exec
     }
 
@@ -251,6 +251,7 @@ pub struct Config {
 }
 
 impl Config {
+    #![cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     pub fn new(
         command: PathBuf,
         args: Vec<OsString>,
