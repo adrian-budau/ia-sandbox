@@ -134,10 +134,12 @@ pub fn app() -> App<'static, 'static> {
                 .long("pids")
                 .short("p")
                 .takes_value(true)
+                .default_value("50")
                 .help("Number of pids limit")
                 .long_help(
                     "Number of pids limit. The maximum amount of tasks (processes / threads)\n\
-                     this program is allowed to create (count includes the program itself).",
+                     this program is allowed to create (count includes the program itself).\n\
+                     Defaults 50 to protect against fork bombs.",
                 ),
         )
         .arg(
@@ -216,6 +218,35 @@ pub fn app() -> App<'static, 'static> {
                      - rw, default is to mount read-only\n\
                      - exec, default is to mount with no exec permissions\n\
                      - dev, default is to mount with no access to devices\n",
+                ),
+        )
+        .arg(
+            Arg::with_name("swap-redirects")
+                .long("swap-redirects")
+                .requires("stdin")
+                .requires("stdout")
+                .help("whether to reverse the opening of stdin and stdout")
+                .long_help(
+                    "whether to reverse the opening of stdin and stdout.\n\
+                     When opening a FIFO filo for reading/writing, if it's not\n\
+                     opened for writing/reading by another process then the current one\n\
+                     is blocked. For 2 processes to communicate using 2 FIFO files\n\
+                     one must open the input and then the output, and the other one must\n\
+                     open output and then input.",
+                ),
+        )
+        .arg(
+            Arg::with_name("no-clear-usage")
+                .long("no-clear-usage")
+                .help("whether to not clear usage (time/memory/pids) from cgroups")
+                .conflicts_with("time")
+                .conflicts_with("memory")
+                .conflicts_with("pids")
+                .long_help(
+                    "whether to not clear usage (time/memory/pids) from cgroups.\n\
+                     For multi-run tasks cpu usage might be added for all run of the task.\n\
+                     Because usage is not cleared, it does not make sense to change limits\n\
+                     so this option conflicts with time/memory/pids limits.",
                 ),
         )
 }

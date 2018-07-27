@@ -5,7 +5,8 @@ use std::result;
 use std::time::Duration;
 
 use ia_sandbox::config::{
-    Config, ControllerPath, Limits, Mount, MountOptions, ShareNet, SpaceUsage,
+    ClearUsage, Config, ControllerPath, Limits, Mount, MountOptions, ShareNet, SpaceUsage,
+    SwapRedirects,
 };
 
 use app;
@@ -151,6 +152,8 @@ impl<'a> ArgMatches<'a> {
             self.instance_name(),
             controller_path,
             self.mounts()?,
+            self.swap_redirects(),
+            self.clear_usage(),
         );
 
         Ok((config, self.output_type()))
@@ -258,6 +261,22 @@ impl<'a> ArgMatches<'a> {
         match self.values_of("mount") {
             None => Ok(vec![]),
             Some(args) => args.map(parse_mount).collect(),
+        }
+    }
+
+    fn swap_redirects(&self) -> SwapRedirects {
+        if self.is_present("swap-redirects") {
+            SwapRedirects::Yes
+        } else {
+            SwapRedirects::No
+        }
+    }
+
+    fn clear_usage(&self) -> ClearUsage {
+        if self.is_present("no-clear-usage") {
+            ClearUsage::No
+        } else {
+            ClearUsage::Yes
         }
     }
 }

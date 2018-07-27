@@ -8,7 +8,7 @@ use std::result;
 use std::str::FromStr;
 use std::time::Duration;
 
-use config::{ControllerPath, Limits, SpaceUsage};
+use config::{ClearUsage, ControllerPath, Limits, SpaceUsage};
 use errors::CGroupError;
 use ffi;
 use run_info::RunUsage;
@@ -99,12 +99,17 @@ const CPUACCT_DEFAULT_CONTROLLER_PATH: &str = "/sys/fs/cgroup/cpuacct/ia-sandbox
 pub fn enter_cpuacct_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
+    clear_usage: ClearUsage,
 ) -> Result<()> {
     let instance_path = get_instance_path(
         controller_path.unwrap_or_else(|| Path::new(CPUACCT_DEFAULT_CONTROLLER_PATH)),
         instance_name,
     )?;
-    cgroup_write(&instance_path, "cpuacct.usage", "0\n")?;
+
+    if clear_usage == ClearUsage::Yes {
+        cgroup_write(&instance_path, "cpuacct.usage", "0\n")?;
+    }
+
     enter_cgroup(&instance_path)
 }
 
@@ -114,31 +119,35 @@ pub fn enter_memory_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
     memory_limit: Option<SpaceUsage>,
+    clear_usage: ClearUsage,
 ) -> Result<()> {
     let instance_path = get_instance_path(
         controller_path.unwrap_or_else(|| Path::new(MEMORY_DEFAULT_CONTROLLER_PATH)),
         instance_name,
     )?;
-    cgroup_write(&instance_path, "memory.max_usage_in_bytes", "0\n")?;
-    cgroup_write(&instance_path, "memory.memsw.max_usage_in_bytes", "0\n").unwrap_or(());
 
-    // Reset limits to infinite in case there is no memory limit but also because we need at all
-    // times for limit_in_bytes < memsw.limit_in_bytes
-    cgroup_write(&instance_path, "memory.memsw.limit_in_bytes", "-1\n").unwrap_or(());
-    cgroup_write(&instance_path, "memory.limit_in_bytes", "-1\n")?;
-    if let Some(memory_limit) = memory_limit {
-        // Assign some extra memory so that we can tell when a killed by signal 9 is actually a
-        // memory limit exceeded
-        cgroup_write(
-            &instance_path,
-            "memory.limit_in_bytes",
-            format!("{}\n", memory_limit.as_bytes() + EXTRA_MEMORY_GIVEN),
-        )?;
-        cgroup_write(
-            &instance_path,
-            "memory.memsw.limit_in_bytes",
-            format!("{}\n", memory_limit.as_bytes() + EXTRA_MEMORY_GIVEN),
-        ).unwrap_or(());
+    if clear_usage == ClearUsage::Yes {
+        cgroup_write(&instance_path, "memory.max_usage_in_bytes", "0\n")?;
+        cgroup_write(&instance_path, "memory.memsw.max_usage_in_bytes", "0\n").unwrap_or(());
+
+        // Reset limits to infinite in case there is no memory limit but also because we need at all
+        // times for limit_in_bytes < memsw.limit_in_bytes
+        cgroup_write(&instance_path, "memory.memsw.limit_in_bytes", "-1\n").unwrap_or(());
+        cgroup_write(&instance_path, "memory.limit_in_bytes", "-1\n")?;
+        if let Some(memory_limit) = memory_limit {
+            // Assign some extra memory so that we can tell when a killed by signal 9 is actually a
+            // memory limit exceeded
+            cgroup_write(
+                &instance_path,
+                "memory.limit_in_bytes",
+                format!("{}\n", memory_limit.as_bytes() + EXTRA_MEMORY_GIVEN),
+            )?;
+            cgroup_write(
+                &instance_path,
+                "memory.memsw.limit_in_bytes",
+                format!("{}\n", memory_limit.as_bytes() + EXTRA_MEMORY_GIVEN),
+            ).unwrap_or(());
+        }
     }
 
     enter_cgroup(&instance_path)
@@ -149,16 +158,19 @@ pub fn enter_pids_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
     pids_limit: Option<usize>,
+    clear_usage: ClearUsage,
 ) -> Result<()> {
     let instance_path = get_instance_path(
         controller_path.unwrap_or_else(|| Path::new(PIDS_DEFAULT_CONTROLLER_PATH)),
         instance_name,
     )?;
 
-    if let Some(pids_limit) = pids_limit {
-        cgroup_write(&instance_path, "pids.max", format!("{}\n", pids_limit))?;
-    } else {
-        cgroup_write(&instance_path, "pids.max", "max\n")?;
+    if clear_usage == ClearUsage::Yes {
+        if let Some(pids_limit) = pids_limit {
+            cgroup_write(&instance_path, "pids.max", format!("{}\n", pids_limit))?;
+        } else {
+            cgroup_write(&instance_path, "pids.max", "max\n")?;
+        }
     }
 
     enter_cgroup(&instance_path)
@@ -168,10 +180,21 @@ pub fn enter_all_cgroups(
     controller_path: &ControllerPath,
     instance_name: Option<&OsStr>,
     limits: Limits,
+    clear_usage: ClearUsage,
 ) -> Result<()> {
-    enter_cpuacct_cgroup(controller_path.cpuacct(), instance_name)?;
-    enter_memory_cgroup(controller_path.memory(), instance_name, limits.memory())?;
-    enter_pids_cgroup(controller_path.pids(), instance_name, limits.pids())
+    enter_cpuacct_cgroup(controller_path.cpuacct(), instance_name, clear_usage)?;
+    enter_memory_cgroup(
+        controller_path.memory(),
+        instance_name,
+        limits.memory(),
+        clear_usage,
+    )?;
+    enter_pids_cgroup(
+        controller_path.pids(),
+        instance_name,
+        limits.pids(),
+        clear_usage,
+    )
 }
 
 pub fn get_usage(

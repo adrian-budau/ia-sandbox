@@ -9,6 +9,18 @@ pub enum ShareNet {
     Unshare,
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum SwapRedirects {
+    Yes,
+    No,
+}
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum ClearUsage {
+    Yes,
+    No,
+}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SpaceUsage(u64);
 
@@ -248,6 +260,8 @@ pub struct Config {
     instance_name: Option<OsString>,
     controller_path: ControllerPath,
     mounts: Vec<Mount>,
+    swap_redirects: SwapRedirects,
+    clear_usage: ClearUsage,
 }
 
 impl Config {
@@ -264,6 +278,8 @@ impl Config {
         instance_name: Option<OsString>,
         controller_path: ControllerPath,
         mounts: Vec<Mount>,
+        swap_redirects: SwapRedirects,
+        clear_usage: ClearUsage,
     ) -> Config {
         Config {
             command,
@@ -277,6 +293,8 @@ impl Config {
             instance_name,
             controller_path,
             mounts,
+            swap_redirects,
+            clear_usage,
         }
     }
 
@@ -333,5 +351,13 @@ impl Config {
 
     pub fn mounts(&self) -> &[Mount] {
         self.mounts.as_ref()
+    }
+
+    pub fn swap_redirects(&self) -> SwapRedirects {
+        self.swap_redirects
+    }
+
+    pub fn clear_usage(&self) -> ClearUsage {
+        self.clear_usage
     }
 }

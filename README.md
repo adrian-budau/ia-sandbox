@@ -15,9 +15,12 @@ What is done
 - [x] Pivot root 
     - [x] Proper unmounting of all previous mounts
 - [x] Redirect of stdin/stdout/stderr
-- [ ] Memory/Disk/Cpu limits
-    - [ ] Setrlimit
-    - [ ] Cgroups
-- [ ] Collect run data
+- [x] Memory/Disk/Cpu limits using cGroups
+- [x] Collect run data
     - [x] Collect exit status (success, non zero exit status, killed by signal)
-    - [ ] Collect memory/time/disk usage
+    - [x] Collect memory/time/disk usage
+    - [x] Output in a human readable format
+    - [x] Output old jail line from infoarena
+    - [x] Output json
+- [x] Support interactive tasks (using pipes)
+- [x] Support multi-run tasks (not resetting stats)

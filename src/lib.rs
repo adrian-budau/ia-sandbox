@@ -24,7 +24,7 @@ mod ffi;
 pub mod run_info;
 pub mod utils;
 
-use config::{Config, Limits, ShareNet};
+use config::{Config, Limits, ShareNet, SwapRedirects};
 pub use errors::*;
 use run_info::{RunInfo, RunUsage};
 
@@ -44,12 +44,20 @@ pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
         ffi::set_uid_gid_maps(user_group_id)?;
 
         ffi::clone(config.share_net(), || {
+            if config.swap_redirects() == SwapRedirects::Yes {
+                if let Some(stdout) = config.redirect_stdout() {
+                    ffi::redirect_fd(ffi::STDOUT, stdout)?;
+                }
+            }
+
             if let Some(stdin) = config.redirect_stdin() {
                 ffi::redirect_fd(ffi::STDIN, stdin)?;
             }
 
-            if let Some(stdout) = config.redirect_stdout() {
-                ffi::redirect_fd(ffi::STDOUT, stdout)?;
+            if config.swap_redirects() == SwapRedirects::No {
+                if let Some(stdout) = config.redirect_stdout() {
+                    ffi::redirect_fd(ffi::STDOUT, stdout)?;
+                }
             }
 
             if let Some(stderr) = config.redirect_stderr() {
@@ -62,6 +70,7 @@ pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
                 config.controller_path(),
                 config.instance_name(),
                 config.limits(),
+                config.clear_usage(),
             )?;
 
             // Remount everything privately

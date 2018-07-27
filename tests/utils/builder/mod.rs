@@ -2,7 +2,7 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use ia_sandbox::config::{Config, Limits, Mount, ShareNet, SpaceUsage};
+use ia_sandbox::config::{ClearUsage, Config, Limits, Mount, ShareNet, SpaceUsage, SwapRedirects};
 use ia_sandbox::run_info::RunInfo;
 use ia_sandbox::{self, Result};
 
@@ -114,6 +114,8 @@ impl ConfigBuilder {
             self.instance_name.clone(),
             Default::default(),
             self.mounts.clone(),
+            SwapRedirects::No,
+            ClearUsage::Yes,
         );
 
         ia_sandbox::run_jail(&config)
