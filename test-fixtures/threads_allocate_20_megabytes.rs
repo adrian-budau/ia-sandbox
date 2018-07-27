@@ -1,4 +1,3 @@
-#![feature(alloc_system)]
 use std::thread::{self, Builder};
 use std::time::Duration;
 

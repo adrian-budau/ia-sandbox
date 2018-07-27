@@ -4,12 +4,23 @@ stages:
 build:nightly:
   stage: build_and_test
   script:
-    - apt-get update
     - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
     - source $HOME/.cargo/env
     - rustup component add clippy-preview
+    - cargo build --features integration-test,nightly --all-targets
+    - cargo build --features integration-test,nightly --all-targets --release
+    - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
+    - cargo test --features nightly -v
+    - cargo clippy --features nightly --all-targets
+
+build:stable:
+  stage: build_and_test
+  script:
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y
+    - source $HOME/.cargo/env
+    - rustup component add rustfmt-preview
     - cargo build --features integration-test --all-targets
     - cargo build --features integration-test --all-targets --release
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test -v
-    - cargo clippy --all-targets
+    - cargo fmt -- --write-mode check

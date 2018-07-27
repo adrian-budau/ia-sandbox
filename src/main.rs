@@ -1,6 +1,3 @@
-#![feature(fnbox)]
-#![feature(duration_extras)]
-#![feature(slice_patterns)]
 #[macro_use]
 extern crate clap;
 #[macro_use]

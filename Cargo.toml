@@ -19,6 +19,7 @@ tempdir = "0.3"
 [features]
 default = []
 integration-test = []
+nightly = []
 
 [[bin]]
 name = "ia-sandbox"
@@ -45,7 +46,7 @@ name = "hello_world"
 path = "test-fixtures/hello_world.rs"
 
 [[bin]]
-required-features = ["integration-test"]
+required-features = ["integration-test", "nightly"]
 name = "kill_with_signal_arg"
 path = "test-fixtures/kill_with_signal_arg.rs"
 

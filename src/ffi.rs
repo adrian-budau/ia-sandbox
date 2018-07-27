@@ -1,4 +1,3 @@
-use std::boxed::FnBox;
 use std::error::Error as ErrorExt;
 use std::ffi::{CString, OsStr};
 use std::fmt::Debug;
@@ -130,7 +129,7 @@ pub fn set_alarm_interval(interval: i64) -> Result<()> {
     }
 }
 
-/// how often SIGALRM should trigger (i microseconds)
+/// how often SIGALRM should trigger (in microseconds)
 const ALARM_TIMER_INTERVAL: i64 = 1_000;
 
 pub fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
@@ -151,26 +150,42 @@ where
 
     let mut child_stack = vec![0; DEFAULT_STACK_SIZE];
 
-    extern "C" fn cb(arg: *mut libc::c_void) -> libc::c_int {
-        unsafe { Box::from_raw(arg as *mut Box<FnBox()>)() };
+    struct Callback<F> {
+        inner: F,
+        write_error_pipe: File,
+    };
 
+    extern "C" fn cb<T, F>(arg: *mut libc::c_void) -> libc::c_int
+    where
+        T: Serialize,
+        F: FnOnce() -> T + Send,
+    {
+        let obj: Callback<F> = unsafe { *Box::from_raw(arg as *mut _) };
+
+        let Callback {
+            inner,
+            mut write_error_pipe,
+        } = obj;
+
+        let result = inner();
+        let _ = bincode::serialize_into(&mut write_error_pipe, &result);
         0
     }
 
-    let (read_error_pipe, mut write_error_pipe) = make_pipe()?;
-    let f: Box<FnBox() + Send> = Box::new(move || {
-        let result = f();
-        let _ = bincode::serialize_into(&mut write_error_pipe, &result);
+    let (read_error_pipe, write_error_pipe) = make_pipe()?;
+
+    let mut context = Box::new(Callback {
+        inner: f,
+        write_error_pipe,
     });
-    let f = Box::new(f);
 
     let pid = match unsafe {
         #[allow(trivial_casts)]
         libc::clone(
-            cb,
+            cb::<T, F>,
             child_stack.as_mut_ptr().offset(child_stack.len() as isize) as *mut libc::c_void,
             clone_flags,
-            &*f as *const _ as *mut libc::c_void,
+            context.as_mut() as *mut _ as *mut _,
         )
     } {
         -1 => return Err(FFIError::CloneError(last_error_string())),

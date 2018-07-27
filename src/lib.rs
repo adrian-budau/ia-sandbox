@@ -1,6 +1,4 @@
 #![recursion_limit = "1024"]
-#![feature(fnbox)]
-#![feature(duration_extras)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![deny(

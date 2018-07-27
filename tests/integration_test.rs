@@ -11,9 +11,11 @@ use ia_sandbox::errors::{ChildError, Error, FFIError};
 use tempdir::TempDir;
 
 mod utils;
+#[cfg(feature = "nightly")]
+use utils::matchers::KilledBySignal;
 use utils::matchers::{
-    CompareLimits, IsSuccess, KilledBySignal, MemoryLimitExceeded, NonZeroExitStatus,
-    TimeLimitExceeded, WallTimeLimitExceeded,
+    CompareLimits, IsSuccess, MemoryLimitExceeded, NonZeroExitStatus, TimeLimitExceeded,
+    WallTimeLimitExceeded,
 };
 use utils::{LimitsBuilder, PivotRoot, RunInfoExt, TestRunnerHelper};
 
@@ -23,6 +25,7 @@ const EXIT_WITH_INPUT: &str = "./target/release/exit_with_input";
 
 const EXIT_WITH_LAST_ARGUMENT: &str = "./target/release/exit_with_last_argument";
 
+#[cfg(feature = "nightly")]
 const KILL_WITH_SIGNAL_ARG: &str = "./target/debug/kill_with_signal_arg";
 
 const SLEEP_1_SECOND: &str = "./target/release/sleep_1_second";
@@ -151,6 +154,7 @@ fn test_arguments() {
         .assert(NonZeroExitStatus::new(17))
 }
 
+#[cfg(feature = "nightly")]
 #[test]
 fn test_killed_by_signal() {
     TestRunnerHelper::for_simple_exec(
