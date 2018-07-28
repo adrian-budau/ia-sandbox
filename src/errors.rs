@@ -57,6 +57,8 @@ pub enum FFIError {
     SigActionError { signal: String, error: String },
     #[fail(display = "Could not umount path: {:?}: {}", path, error)]
     UMountError { path: PathBuf, error: String },
+    #[fail(display = "Could not unshare cgroup namespace: {}", _0)]
+    UnshareCGroupError(String),
     #[fail(display = "Could not usleep for {} microseconds: {}", time, error)]
     UsleepError { time: u32, error: String },
     #[fail(display = "Could not write /proc/self/uid_map file: {}", _0)]

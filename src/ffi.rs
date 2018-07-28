@@ -15,8 +15,8 @@ use std::time::{Duration, Instant};
 
 use bincode;
 use libc::{
-    self, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS, CLONE_VFORK,
-    SIGCHLD,
+    self, CLONE_NEWCGROUP, CLONE_NEWIPC, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
+    CLONE_VFORK, SIGCHLD,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -199,6 +199,13 @@ where
         read_error_pipe,
         phantom: PhantomData,
     })
+}
+
+pub fn unshare_cgroup() -> Result<()> {
+    match unsafe { libc::unshare(CLONE_NEWCGROUP) } {
+        -1 => Err(FFIError::UnshareCGroupError(last_error_string())),
+        _ => Ok(()),
+    }
 }
 
 pub fn remount_private() -> Result<()> {

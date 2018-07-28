@@ -71,6 +71,8 @@ pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
                 config.clear_usage(),
             )?;
 
+            ffi::unshare_cgroup()?;
+
             // Remount everything privately
             ffi::remount_private()?;
 
