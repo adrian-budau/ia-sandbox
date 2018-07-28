@@ -12,7 +12,7 @@ fn main() {
                 let mut steps = 0;
                 loop {
                     steps += 1;
-                    if steps < 100000 {
+                    if steps < 100_000 {
                         continue;
                     }
                     steps = 0;

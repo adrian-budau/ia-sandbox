@@ -15,7 +15,7 @@ All of the trailing arguments are passed to the command to run. If you're passin
 arguments to both ia-sandbox and the binary, the ones after `--` go to the command,
 the ones before go to ia-sandbox.";
 
-pub fn app() -> App<'static, 'static> {
+pub(crate) fn app() -> App<'static, 'static> {
     App::new("ia-sandbox")
         .author(crate_authors!())
         .version(crate_version!())

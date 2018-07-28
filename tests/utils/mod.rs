@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 
 use ia_sandbox::run_info::RunInfo;
 
-use tempdir::TempDir;
+use tempfile::{Builder, TempDir};
 
 mod builder;
 pub use self::builder::{ConfigBuilder, LimitsBuilder};
@@ -89,7 +89,7 @@ impl<'a> TestRunnerHelper<'a> {
         exec_path: T,
         pivot_root: PivotRoot,
     ) -> TestRunnerHelper {
-        let temp_dir = TempDir::new(test_name).unwrap();
+        let temp_dir = Builder::new().prefix(test_name).tempdir().unwrap();
         let exec_path = exec_path.as_ref();
 
         copy_by_command(

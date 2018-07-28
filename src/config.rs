@@ -25,32 +25,32 @@ pub enum ClearUsage {
 pub struct SpaceUsage(u64);
 
 impl SpaceUsage {
-    pub fn from_bytes(bytes: u64) -> SpaceUsage {
+    pub fn from_bytes(bytes: u64) -> Self {
         SpaceUsage(bytes)
     }
 
-    pub fn from_kilobytes(kilobytes: u64) -> SpaceUsage {
-        SpaceUsage::from_bytes(kilobytes * 1_000)
+    pub fn from_kilobytes(kilobytes: u64) -> Self {
+        Self::from_bytes(kilobytes * 1_000)
     }
 
-    pub fn from_megabytes(megabytes: u64) -> SpaceUsage {
-        SpaceUsage::from_kilobytes(megabytes * 1_000)
+    pub fn from_megabytes(megabytes: u64) -> Self {
+        Self::from_kilobytes(megabytes * 1_000)
     }
 
-    pub fn from_gigabytes(gigabytes: u64) -> SpaceUsage {
-        SpaceUsage::from_megabytes(gigabytes * 1_000)
+    pub fn from_gigabytes(gigabytes: u64) -> Self {
+        Self::from_megabytes(gigabytes * 1_000)
     }
 
-    pub fn from_kibibytes(kibibytes: u64) -> SpaceUsage {
-        SpaceUsage::from_bytes(kibibytes * 1_024)
+    pub fn from_kibibytes(kibibytes: u64) -> Self {
+        Self::from_bytes(kibibytes * 1_024)
     }
 
-    pub fn from_mebibytes(mebibytes: u64) -> SpaceUsage {
-        SpaceUsage::from_kibibytes(mebibytes * 1_024)
+    pub fn from_mebibytes(mebibytes: u64) -> Self {
+        Self::from_kibibytes(mebibytes * 1_024)
     }
 
-    pub fn from_gibibytes(gibibytes: u64) -> SpaceUsage {
-        SpaceUsage::from_mebibytes(gibibytes * 1_024)
+    pub fn from_gibibytes(gibibytes: u64) -> Self {
+        Self::from_mebibytes(gibibytes * 1_024)
     }
 
     pub fn as_bytes(self) -> u64 {
@@ -63,7 +63,7 @@ impl SpaceUsage {
 }
 
 impl Display for SpaceUsage {
-    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
         if self.0 % (1 << 30) == 0 {
             write!(fmt, "{} gibibytes", self.0 >> 30)
         } else if self.0 % (1 << 20) == 0 {
@@ -99,8 +99,8 @@ impl Limits {
         memory: Option<SpaceUsage>,
         stack: Option<SpaceUsage>,
         pids: Option<usize>,
-    ) -> Limits {
-        Limits {
+    ) -> Self {
+        Self {
             wall_time,
             user_time,
             memory,
@@ -131,8 +131,8 @@ impl Limits {
 }
 
 impl Default for Limits {
-    fn default() -> Limits {
-        Limits::new(None, None, None, None, None)
+    fn default() -> Self {
+        Self::new(None, None, None, None, None)
     }
 }
 
@@ -144,12 +144,8 @@ pub struct ControllerPath {
 }
 
 impl ControllerPath {
-    pub fn new(
-        cpuacct: Option<PathBuf>,
-        memory: Option<PathBuf>,
-        pids: Option<PathBuf>,
-    ) -> ControllerPath {
-        ControllerPath {
+    pub fn new(cpuacct: Option<PathBuf>, memory: Option<PathBuf>, pids: Option<PathBuf>) -> Self {
+        Self {
             cpuacct,
             memory,
             pids,
@@ -170,8 +166,8 @@ impl ControllerPath {
 }
 
 impl Default for ControllerPath {
-    fn default() -> ControllerPath {
-        ControllerPath::new(None, None, None)
+    fn default() -> Self {
+        Self::new(None, None, None)
     }
 }
 
@@ -209,8 +205,8 @@ impl MountOptions {
 }
 
 impl Default for MountOptions {
-    fn default() -> MountOptions {
-        MountOptions {
+    fn default() -> Self {
+        Self {
             read_only: true,
             dev: false,
             exec: false,
@@ -226,8 +222,8 @@ pub struct Mount {
 }
 
 impl Mount {
-    pub fn new(source: PathBuf, destination: PathBuf, mount_options: MountOptions) -> Mount {
-        Mount {
+    pub fn new(source: PathBuf, destination: PathBuf, mount_options: MountOptions) -> Self {
+        Self {
             source,
             destination,
             mount_options,
@@ -280,8 +276,8 @@ impl Config {
         mounts: Vec<Mount>,
         swap_redirects: SwapRedirects,
         clear_usage: ClearUsage,
-    ) -> Config {
-        Config {
+    ) -> Self {
+        Self {
             command,
             args,
             new_root,

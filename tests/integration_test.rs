@@ -1,5 +1,5 @@
 extern crate ia_sandbox;
-extern crate tempdir;
+extern crate tempfile;
 
 use std::fs::File;
 use std::io::Write;
@@ -8,7 +8,7 @@ use std::time::Duration;
 use ia_sandbox::config::{Mount, MountOptions, SpaceUsage};
 use ia_sandbox::errors::{ChildError, Error, FFIError};
 
-use tempdir::TempDir;
+use tempfile::Builder;
 
 mod utils;
 #[cfg(feature = "nightly")]
@@ -363,7 +363,10 @@ fn test_pids_limit_exceeded() {
 
 #[test]
 fn test_mount_directory() {
-    let temp_dir = TempDir::new("test_mount_directory_special").unwrap();
+    let temp_dir = Builder::new()
+        .prefix("test_mount_directory_special")
+        .tempdir()
+        .unwrap();
     let input_path = temp_dir.path().join("input");
     let mut file = File::create(&input_path).unwrap();
     let _ = file.write(b"15\n").unwrap();

@@ -15,12 +15,12 @@ use failure::{self, ResultExt};
 
 type Result<T> = result::Result<T, failure::Error>;
 
-pub fn parse() -> Result<(Config, OutputType)> {
+pub(crate) fn parse() -> Result<(Config, OutputType)> {
     let matches = app::app().get_matches();
     ArgMatches(matches).to_config_and_output()
 }
 
-pub enum OutputType {
+pub(crate) enum OutputType {
     Human,
     Oneline,
     Json,

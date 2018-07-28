@@ -5,7 +5,7 @@ use std::time::Duration;
 pub struct DurationDisplay(pub Duration);
 
 impl Display for DurationDisplay {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         let nanos = self.0.as_secs() * 1_000_000_000u64 + u64::from(self.0.subsec_nanos());
         if nanos < 1000 {
             write!(formatter, "{}ns", nanos)
@@ -20,11 +20,11 @@ impl Display for DurationDisplay {
 }
 
 pub trait DurationExt {
-    fn as_millis(&self) -> u64;
+    fn as_milliseconds(&self) -> u128;
 }
 
 impl DurationExt for Duration {
-    fn as_millis(&self) -> u64 {
-        self.as_secs() * 1000 + u64::from(self.subsec_nanos()) / 1_000_000
+    fn as_milliseconds(&self) -> u128 {
+        u128::from(self.as_secs()) * 1000 + u128::from(self.subsec_nanos()) / 1_000_000
     }
 }

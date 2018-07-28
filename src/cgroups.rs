@@ -71,7 +71,7 @@ where
         })
 }
 
-pub fn enter_cgroup(controller_path: &Path) -> Result<()> {
+pub(crate) fn enter_cgroup(controller_path: &Path) -> Result<()> {
     cgroup_write(controller_path, "tasks", format!("{}\n", ffi::getpid()))
 }
 
@@ -96,7 +96,7 @@ fn get_instance_path(controller_path: &Path, instance_name: Option<&OsStr>) -> R
 }
 
 const CPUACCT_DEFAULT_CONTROLLER_PATH: &str = "/sys/fs/cgroup/cpuacct/ia-sandbox";
-pub fn enter_cpuacct_cgroup(
+pub(crate) fn enter_cpuacct_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
     clear_usage: ClearUsage,
@@ -115,7 +115,7 @@ pub fn enter_cpuacct_cgroup(
 
 const MEMORY_DEFAULT_CONTROLLER_PATH: &str = "/sys/fs/cgroup/memory/ia-sandbox";
 const EXTRA_MEMORY_GIVEN: u64 = 16 * 1_024;
-pub fn enter_memory_cgroup(
+pub(crate) fn enter_memory_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
     memory_limit: Option<SpaceUsage>,
@@ -154,7 +154,7 @@ pub fn enter_memory_cgroup(
 }
 
 const PIDS_DEFAULT_CONTROLLER_PATH: &str = "/sys/fs/cgroup/pids/ia-sandbox";
-pub fn enter_pids_cgroup(
+pub(crate) fn enter_pids_cgroup(
     controller_path: Option<&Path>,
     instance_name: Option<&OsStr>,
     pids_limit: Option<usize>,
@@ -176,7 +176,7 @@ pub fn enter_pids_cgroup(
     enter_cgroup(&instance_path)
 }
 
-pub fn enter_all_cgroups(
+pub(crate) fn enter_all_cgroups(
     controller_path: &ControllerPath,
     instance_name: Option<&OsStr>,
     limits: Limits,
@@ -197,7 +197,7 @@ pub fn enter_all_cgroups(
     )
 }
 
-pub fn get_usage(
+pub(crate) fn get_usage(
     controller_path: &ControllerPath,
     instance_name: Option<&OsStr>,
     wall_time: Duration,

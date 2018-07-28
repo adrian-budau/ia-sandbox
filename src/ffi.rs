@@ -31,27 +31,27 @@ const DEFAULT_STACK_SIZE: usize = 256 * 1024;
 const CLONE_NEWNET: libc::c_int = 0x40_000_000;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub struct UserId(libc::uid_t);
+pub(crate) struct UserId(libc::uid_t);
 
 impl UserId {
-    pub const ROOT: UserId = UserId(0);
+    pub(crate) const ROOT: Self = UserId(0);
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub struct GroupId(libc::gid_t);
+pub(crate) struct GroupId(libc::gid_t);
 
 impl GroupId {
-    pub const ROOT: GroupId = GroupId(0);
+    pub(crate) const ROOT: Self = GroupId(0);
 }
 
-pub fn get_user_group_id() -> (UserId, GroupId) {
+pub(crate) fn get_user_group_id() -> (UserId, GroupId) {
     unsafe { (UserId(libc::getuid()), GroupId(libc::getgid())) }
 }
 
-pub fn getpid() -> libc::c_int {
+pub(crate) fn getpid() -> libc::c_int {
     unsafe { libc::getpid() }
 }
-pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
+pub(crate) fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
     let uid_error = |_| FFIError::WriteUidError(last_error_string());
     let mut uid_map = OpenOptions::new()
         .write(true)
@@ -84,7 +84,7 @@ pub fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
 }
 
 #[allow(trivial_casts)]
-pub fn set_sig_alarm_handler() -> Result<()> {
+pub(crate) fn set_sig_alarm_handler() -> Result<()> {
     extern "C" fn handler(_: libc::c_int, _: *mut libc::siginfo_t, _: *mut libc::c_void) {}
 
     let mut sigaction: libc::sigaction = unsafe { mem::uninitialized() };
@@ -102,7 +102,7 @@ pub fn set_sig_alarm_handler() -> Result<()> {
     }
 }
 
-pub fn set_alarm_interval(interval: i64) -> Result<()> {
+pub(crate) fn set_alarm_interval(interval: i64) -> Result<()> {
     let timeval = libc::timeval {
         tv_sec: interval / 1_000_000,
         tv_usec: interval % 1_000_000,
@@ -132,29 +132,15 @@ pub fn set_alarm_interval(interval: i64) -> Result<()> {
 /// how often SIGALRM should trigger (in microseconds)
 const ALARM_TIMER_INTERVAL: i64 = 1_000;
 
-pub fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
+pub(crate) fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
 where
     F: FnOnce() -> T + Send,
     T: Serialize,
 {
-    let mut clone_flags = CLONE_NEWUSER
-        | CLONE_NEWPID
-        | CLONE_NEWIPC
-        | CLONE_NEWUTS
-        | CLONE_NEWNS
-        | CLONE_VFORK
-        | SIGCHLD;
-    if share_net == ShareNet::Unshare {
-        clone_flags |= CLONE_NEWNET;
-    }
-
-    let mut child_stack = vec![0; DEFAULT_STACK_SIZE];
-
     struct Callback<F> {
         inner: F,
         write_error_pipe: File,
     };
-
     extern "C" fn cb<T, F>(arg: *mut libc::c_void) -> libc::c_int
     where
         T: Serialize,
@@ -171,6 +157,19 @@ where
         let _ = bincode::serialize_into(&mut write_error_pipe, &result);
         0
     }
+
+    let mut clone_flags = CLONE_NEWUSER
+        | CLONE_NEWPID
+        | CLONE_NEWIPC
+        | CLONE_NEWUTS
+        | CLONE_NEWNS
+        | CLONE_VFORK
+        | SIGCHLD;
+    if share_net == ShareNet::Unshare {
+        clone_flags |= CLONE_NEWNET;
+    }
+
+    let mut child_stack = vec![0; DEFAULT_STACK_SIZE];
 
     let (read_error_pipe, write_error_pipe) = make_pipe()?;
 
@@ -201,14 +200,14 @@ where
     })
 }
 
-pub fn unshare_cgroup() -> Result<()> {
+pub(crate) fn unshare_cgroup() -> Result<()> {
     match unsafe { libc::unshare(CLONE_NEWCGROUP) } {
         -1 => Err(FFIError::UnshareCGroupError(last_error_string())),
         _ => Ok(()),
     }
 }
 
-pub fn remount_private() -> Result<()> {
+pub(crate) fn remount_private() -> Result<()> {
     let root = os_str_to_c_string("/");
     let res = unsafe {
         libc::mount(
@@ -230,7 +229,7 @@ pub fn remount_private() -> Result<()> {
     }
 }
 
-pub fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
+pub(crate) fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
     // first create the folder (if it does not exist)
     let inner_path = new_root.join(
         mount
@@ -300,7 +299,7 @@ pub fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
 }
 
 const OLD_ROOT_NAME: &str = ".old_root";
-pub fn pivot_root<F>(new_root: &Path, before_umount: F) -> Result<()>
+pub(crate) fn pivot_root<F>(new_root: &Path, before_umount: F) -> Result<()>
 where
     F: FnOnce() -> Result<()>,
 {
@@ -369,7 +368,7 @@ where
     }
 }
 
-pub fn mount_proc() -> Result<()> {
+pub(crate) fn mount_proc() -> Result<()> {
     let name = CString::new("proc").unwrap();
     let path = PathBuf::from("/proc");
 
@@ -404,7 +403,7 @@ pub fn mount_proc() -> Result<()> {
 
 const EXEC_RETRIES: usize = 10;
 const RETRY_DELAY: libc::c_uint = 50000;
-pub fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
+pub(crate) fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
     let arguments_c_string: Vec<_> = iter::once(os_str_to_c_string(command))
         .chain(arguments.iter().map(os_str_to_c_string)) // convert to C pointers
         .collect();
@@ -445,23 +444,23 @@ pub fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
     unreachable!()
 }
 
-pub struct Fd(libc::c_int, &'static str, libc::c_int, libc::c_int);
+pub(crate) struct Fd(libc::c_int, &'static str, libc::c_int, libc::c_int);
 
-pub const STDIN: &Fd = &Fd(0, "stdin", libc::O_RDONLY, 0);
-pub const STDOUT: &Fd = &Fd(
+pub(crate) const STDIN: &Fd = &Fd(0, "stdin", libc::O_RDONLY, 0);
+pub(crate) const STDOUT: &Fd = &Fd(
     1,
     "stdout",
     libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
     0o666,
 );
-pub const STDERR: &Fd = &Fd(
+pub(crate) const STDERR: &Fd = &Fd(
     2,
     "stderr",
     libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
     0o666,
 );
 
-pub fn redirect_fd(fd: &Fd, path: &Path) -> Result<()> {
+pub(crate) fn redirect_fd(fd: &Fd, path: &Path) -> Result<()> {
     if unsafe { libc::close(fd.0) } == -1 {
         return Err(FFIError::CloseFdError {
             fd: fd.0,
@@ -486,7 +485,7 @@ pub fn redirect_fd(fd: &Fd, path: &Path) -> Result<()> {
     }
 }
 
-pub fn move_to_different_process_group() -> Result<()> {
+pub(crate) fn move_to_different_process_group() -> Result<()> {
     if unsafe { libc::setpgid(0, 0) } == -1 {
         Err(FFIError::SetpgidError {
             pid: 0,
@@ -533,7 +532,7 @@ fn sys_pivot_root(new_root: &Path, old_root: &Path) -> Result<()> {
     }
 }
 
-pub fn kill_on_parent_death() -> Result<()> {
+pub(crate) fn kill_on_parent_death() -> Result<()> {
     if unsafe { libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) } == -1 {
         Err(FFIError::PrSetPDeathSigError(last_error_string()))
     } else {
@@ -541,17 +540,14 @@ pub fn kill_on_parent_death() -> Result<()> {
     }
 }
 
-pub fn set_stack_limit(stack: Option<SpaceUsage>) -> Result<()> {
+pub(crate) fn set_stack_limit(stack: Option<SpaceUsage>) -> Result<()> {
     let mut rlimit: libc::rlimit = unsafe { mem::uninitialized() };
-    match stack {
-        Some(usage) => {
-            rlimit.rlim_cur = usage.as_bytes();
-            rlimit.rlim_max = usage.as_bytes();
-        }
-        None => {
-            rlimit.rlim_cur = libc::RLIM_INFINITY;
-            rlimit.rlim_max = libc::RLIM_INFINITY;
-        }
+    if let Some(usage) = stack {
+        rlimit.rlim_cur = usage.as_bytes();
+        rlimit.rlim_max = usage.as_bytes();
+    } else {
+        rlimit.rlim_cur = libc::RLIM_INFINITY;
+        rlimit.rlim_max = libc::RLIM_INFINITY;
     }
 
     if unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlimit) } == -1 {
@@ -566,18 +562,18 @@ mod errno {
     use std::ffi::CStr;
 
     #[derive(Debug)]
-    pub struct Errno(libc::c_int);
+    pub(crate) struct Errno(libc::c_int);
 
     impl Errno {
-        pub fn last_error() -> Errno {
+        pub(crate) fn last_error() -> Self {
             unsafe { Errno(*libc::__errno_location()) }
         }
 
-        pub fn error_code(&self) -> libc::c_int {
+        pub(crate) fn error_code(&self) -> libc::c_int {
             self.0
         }
 
-        pub fn error_string(&self) -> String {
+        pub(crate) fn error_string(&self) -> String {
             let buffer = &mut [0i8; 256];
             if unsafe { libc::strerror_r(self.0, buffer.as_mut_ptr(), buffer.len()) } == -1 {
                 return "unexpected strerror_r error".into();
@@ -611,14 +607,14 @@ fn os_str_to_c_string<T: AsRef<OsStr>>(os_str: T) -> CString {
     CString::new(os_str.as_ref().as_bytes()).unwrap()
 }
 
-pub struct CloneHandle<T> {
+pub(crate) struct CloneHandle<T> {
     pid: libc::pid_t,
     read_error_pipe: File,
     phantom: PhantomData<T>,
 }
 
 impl<T: DeserializeOwned> CloneHandle<T> {
-    pub fn wait<F: Fn(Duration) -> StdResult<RunUsage, Error>>(
+    pub(crate) fn wait<F: Fn(Duration) -> StdResult<RunUsage, Error>>(
         mut self,
         limits: Limits,
         usage: F,
@@ -645,37 +641,34 @@ impl<T: DeserializeOwned> CloneHandle<T> {
 
             // Check if something killed us
             let mut status: libc::c_int = 0;
-            match unsafe { libc::waitpid(self.pid, &mut status, 0) } {
-                -1 => {
-                    let error = errno::Errno::last_error();
-                    if error.error_code() == libc::EINTR {
-                        continue; // interrupted by some signal
-                    }
-                    return Err(Error::FFIError(FFIError::WaitPidError(
-                        error.error_string(),
-                    )));
+            if unsafe { libc::waitpid(self.pid, &mut status, 0) } == -1 {
+                let error = errno::Errno::last_error();
+                if error.error_code() == libc::EINTR {
+                    continue; // interrupted by some signal
                 }
-                _ => {
-                    if unsafe { libc::WIFEXITED(status) } {
-                        let exit_code = unsafe { libc::WEXITSTATUS(status) } as u32;
-                        if exit_code == 0 {
-                            return Ok(RunInfo::new(RunInfoResult::Success(result), usage));
-                        } else {
-                            return Ok(RunInfo::new(
-                                RunInfoResult::NonZeroExitStatus(exit_code),
-                                usage,
-                            ));
-                        }
+                return Err(Error::FFIError(FFIError::WaitPidError(
+                    error.error_string(),
+                )));
+            } else {
+                if unsafe { libc::WIFEXITED(status) } {
+                    let exit_code = unsafe { libc::WEXITSTATUS(status) } as u32;
+                    if exit_code == 0 {
+                        return Ok(RunInfo::new(RunInfoResult::Success(result), usage));
+                    } else {
+                        return Ok(RunInfo::new(
+                            RunInfoResult::NonZeroExitStatus(exit_code),
+                            usage,
+                        ));
                     }
+                }
 
-                    if unsafe { libc::WIFSIGNALED(status) } {
-                        let signal = unsafe { libc::WTERMSIG(status) } as u32;
-                        return Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal), usage));
-                    }
+                if unsafe { libc::WIFSIGNALED(status) } {
+                    let signal = unsafe { libc::WTERMSIG(status) } as u32;
+                    return Ok(RunInfo::new(RunInfoResult::KilledBySignal(signal), usage));
+                }
 
-                    if unsafe { libc::WIFSTOPPED(status) || libc::WIFCONTINUED(status) } {
-                        return Err(Error::StoppedContinuedError);
-                    }
+                if unsafe { libc::WIFSTOPPED(status) || libc::WIFCONTINUED(status) } {
+                    return Err(Error::StoppedContinuedError);
                 }
             }
         }

@@ -14,6 +14,7 @@ pub enum RunInfoResult<T> {
     WallTimeLimitExceeded,
 }
 
+#[cfg_attr(feature = "cargo-clippy", allow(use_self))]
 impl<T> RunInfoResult<T> {
     pub fn is_success(&self) -> bool {
         match *self {
@@ -47,7 +48,7 @@ impl<T> RunInfoResult<T> {
 }
 
 impl<T> Display for RunInfoResult<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
             RunInfoResult::Success(_) => write!(f, "Success"),
             RunInfoResult::NonZeroExitStatus(ref exit_code) => {
@@ -69,8 +70,8 @@ pub struct RunUsage {
 }
 
 impl RunUsage {
-    pub fn new(user_time: Duration, wall_time: Duration, memory: SpaceUsage) -> RunUsage {
-        RunUsage {
+    pub fn new(user_time: Duration, wall_time: Duration, memory: SpaceUsage) -> Self {
+        Self {
             user_time,
             wall_time,
             memory,
@@ -92,24 +93,21 @@ impl RunUsage {
     pub fn check_limits<T>(self, limits: Limits) -> Option<RunInfo<T>> {
         if limits
             .user_time()
-            .map(|time| time < self.user_time())
-            .unwrap_or(false)
+            .map_or(false, |time| time < self.user_time())
         {
             return Some(RunInfo::new(RunInfoResult::TimeLimitExceeded, self));
         }
 
         if limits
             .wall_time()
-            .map(|time| time < self.wall_time())
-            .unwrap_or(false)
+            .map_or(false, |time| time < self.wall_time())
         {
             return Some(RunInfo::new(RunInfoResult::WallTimeLimitExceeded, self));
         }
 
         if limits
             .memory()
-            .map(|memory| memory < self.memory())
-            .unwrap_or(false)
+            .map_or(false, |memory| memory < self.memory())
         {
             return Some(RunInfo::new(RunInfoResult::MemoryLimitExceeded, self));
         }
@@ -119,8 +117,8 @@ impl RunUsage {
 }
 
 impl Default for RunUsage {
-    fn default() -> RunUsage {
-        RunUsage::new(
+    fn default() -> Self {
+        Self::new(
             Duration::from_secs(0),
             Duration::from_secs(0),
             SpaceUsage::from_bytes(0),
@@ -129,7 +127,7 @@ impl Default for RunUsage {
 }
 
 impl Display for RunUsage {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Total user time: {}", DurationDisplay(self.user_time()))?;
         writeln!(f, "Wall time: {}", DurationDisplay(self.wall_time()))?;
         write!(f, "Maximum memory: {}", self.memory())
@@ -141,9 +139,10 @@ pub struct RunInfo<T> {
     usage: RunUsage,
 }
 
+#[cfg_attr(feature = "cargo-clippy", allow(use_self))]
 impl<T> RunInfo<T> {
-    pub fn new(result: RunInfoResult<T>, usage: RunUsage) -> RunInfo<T> {
-        RunInfo { result, usage }
+    pub fn new(result: RunInfoResult<T>, usage: RunUsage) -> Self {
+        Self { result, usage }
     }
 
     pub fn result(&self) -> &RunInfoResult<T> {
@@ -159,7 +158,7 @@ impl<T> RunInfo<T> {
     }
 
     pub fn and_then<A, B, F: FnOnce(T) -> Result<A, B>>(self, cb: F) -> Result<RunInfo<A>, B> {
-        let RunInfo { result, usage } = self;
+        let Self { result, usage } = self;
         result
             .and_then(cb)
             .map(|result| RunInfo::new(result, usage))
@@ -171,7 +170,7 @@ impl<T> RunInfo<T> {
 }
 
 impl<T> Display for RunInfo<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "{}", self.result)?;
         write!(f, "{}", self.usage)
     }

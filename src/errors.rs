@@ -133,13 +133,13 @@ pub enum ChildError {
 }
 
 impl From<CGroupError> for ChildError {
-    fn from(err: CGroupError) -> ChildError {
+    fn from(err: CGroupError) -> Self {
         ChildError::CGroupError(err)
     }
 }
 
 impl From<FFIError> for ChildError {
-    fn from(err: FFIError) -> ChildError {
+    fn from(err: FFIError) -> Self {
         ChildError::FFIError(err)
     }
 }
@@ -163,19 +163,19 @@ pub enum Error {
 }
 
 impl From<CGroupError> for Error {
-    fn from(err: CGroupError) -> Error {
+    fn from(err: CGroupError) -> Self {
         Error::CGroupError(err)
     }
 }
 
 impl From<ChildError> for Error {
-    fn from(err: ChildError) -> Error {
+    fn from(err: ChildError) -> Self {
         Error::ChildError(err)
     }
 }
 
 impl From<FFIError> for Error {
-    fn from(err: FFIError) -> Error {
+    fn from(err: FFIError) -> Self {
         Error::FFIError(err)
     }
 }
