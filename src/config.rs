@@ -9,10 +9,22 @@ pub enum ShareNet {
     Unshare,
 }
 
+impl Default for ShareNet {
+    fn default() -> Self {
+        ShareNet::Unshare
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum SwapRedirects {
     Yes,
     No,
+}
+
+impl Default for SwapRedirects {
+    fn default() -> Self {
+        SwapRedirects::No
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -21,10 +33,22 @@ pub enum ClearUsage {
     No,
 }
 
+impl Default for ClearUsage {
+    fn default() -> Self {
+        ClearUsage::Yes
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Interactive {
     Yes,
     No,
+}
+
+impl Default for Interactive {
+    fn default() -> Self {
+        Interactive::No
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, PartialOrd, Ord, Serialize, Deserialize)]
@@ -253,6 +277,12 @@ impl Mount {
 pub enum Environment {
     Forward,
     EnvList(Vec<(String, String)>),
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Environment::EnvList(Vec::new())
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]

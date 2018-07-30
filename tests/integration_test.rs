@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 use std::time::Duration;
 
-use ia_sandbox::config::{Mount, MountOptions, SpaceUsage};
+use ia_sandbox::config::{ClearUsage, Environment, Mount, MountOptions, SpaceUsage};
 use ia_sandbox::errors::{ChildError, Error, FFIError};
 
 use tempfile::Builder;
@@ -41,6 +41,8 @@ const THREADS_ALLOCATE_20_MEGABYTES: &str = "./target/debug/threads_allocate_20_
 const THREADS_SLEEP_1_SECOND: &str = "./target/debug/threads_sleep_1_second";
 
 const EXIT_WITH_ARG_FILE: &str = "./target/debug/exit_with_arg_file";
+
+const EXIT_WITH_ENV: &str = "./target/debug/exit_with_env";
 
 #[test]
 fn test_basic_sandbox() {
@@ -382,4 +384,47 @@ fn test_mount_directory() {
         .build_and_run()
         .unwrap()
         .assert(NonZeroExitStatus::new(15));
+}
+
+#[test]
+fn test_clear_usage() {
+    let mut limits = LimitsBuilder::new();
+    limits.user_time(Duration::from_millis(600));
+
+    TestRunnerHelper::for_simple_exec("test_clear_usage", THREADS_LOOP_500_MS, PivotRoot::Pivot)
+        .config_builder()
+        .limits(limits)
+        .clear_usage(ClearUsage::Yes)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+
+    TestRunnerHelper::for_simple_exec("test_clear_usage", THREADS_LOOP_500_MS, PivotRoot::Pivot)
+        .config_builder()
+        .limits(limits)
+        .clear_usage(ClearUsage::No)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(TimeLimitExceeded, limits));
+
+    TestRunnerHelper::for_simple_exec("test_clear_usage", THREADS_LOOP_500_MS, PivotRoot::Pivot)
+        .config_builder()
+        .limits(limits)
+        .clear_usage(ClearUsage::Yes)
+        .build_and_run()
+        .unwrap()
+        .assert(CompareLimits::new(IsSuccess, limits));
+}
+
+#[test]
+fn test_environment() {
+    TestRunnerHelper::for_simple_exec("exit_with_env", EXIT_WITH_ENV, PivotRoot::Pivot)
+        .config_builder()
+        .environment(Environment::EnvList(vec![(
+            "arg".to_owned(),
+            "12".to_owned(),
+        )]))
+        .build_and_run()
+        .unwrap()
+        .assert(NonZeroExitStatus::new(12));
 }

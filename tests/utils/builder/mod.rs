@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use ia_sandbox::config::{
-    ClearUsage, Config, Environment, Interactive, Limits, Mount, ShareNet, SpaceUsage,
-    SwapRedirects,
+    ClearUsage, Config, ControllerPath, Environment, Interactive, Limits, Mount, ShareNet,
+    SpaceUsage, SwapRedirects,
 };
 use ia_sandbox::run_info::RunInfo;
 use ia_sandbox::{self, Result};
@@ -20,13 +20,15 @@ pub struct ConfigBuilder {
     limits: Option<Limits>,
     instance_name: Option<OsString>,
     mounts: Vec<Mount>,
+    clear_usage: ClearUsage,
+    environment: Environment,
 }
 
 impl ConfigBuilder {
     pub fn new<T: AsRef<OsStr>>(command: T) -> ConfigBuilder {
         ConfigBuilder {
             command: command.as_ref().into(),
-            args: vec![],
+            args: Vec::new(),
             new_root: None,
             share_net: true,
             redirect_stdin: Some("/dev/null".into()),
@@ -34,7 +36,9 @@ impl ConfigBuilder {
             redirect_stderr: Some("/dev/null".into()),
             limits: None,
             instance_name: Some("test".into()),
-            mounts: vec![],
+            mounts: Vec::new(),
+            clear_usage: ClearUsage::default(),
+            environment: Environment::default(),
         }
     }
 
@@ -100,6 +104,16 @@ impl ConfigBuilder {
         self
     }
 
+    pub fn clear_usage(&mut self, clear_usage: ClearUsage) -> &mut ConfigBuilder {
+        self.clear_usage = clear_usage;
+        self
+    }
+
+    pub fn environment(&mut self, environment: Environment) -> &mut ConfigBuilder {
+        self.environment = environment;
+        self
+    }
+
     pub fn build_and_run(&mut self) -> Result<RunInfo<()>> {
         let config = Config::new(
             self.command.clone(),
@@ -115,12 +129,12 @@ impl ConfigBuilder {
             self.redirect_stderr.clone(),
             self.limits.unwrap_or_default(),
             self.instance_name.clone(),
-            Default::default(),
+            ControllerPath::default(),
             self.mounts.clone(),
-            SwapRedirects::No,
-            ClearUsage::Yes,
-            Interactive::No,
-            Environment::EnvList(Vec::new()),
+            SwapRedirects::default(),
+            self.clear_usage,
+            Interactive::default(),
+            self.environment.clone(),
         );
 
         ia_sandbox::run_jail(&config)
