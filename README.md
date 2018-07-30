@@ -69,6 +69,18 @@ The easiest way to install this is using `cargo` the package manager for
 cargo install ia-sandbox
 ```
 
+For actual isolation it is best to change the root of the sandbox (using `-r` or `--new-root`).
+This will unmount everything, except for `/proc` which is necessary, and is already only
+showing the isolated process.
+
+If you would like to explore the inside of the sandbox an easy way would be
+
+```
+ia-sandbox --mount /lib:/lib:exec --mount /lib64:/lib64:exec --mount /usr:/usr:exec
+           --mount /bin:/bin:exec --new-root PATH_TO_SOME_FOLDER --interactive --forward-env
+           /bin/bash
+```
+
 ### How does it work?
 
 - It first spawns a `supervisor` process into a new pid and user namespaces (while

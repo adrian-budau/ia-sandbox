@@ -249,4 +249,38 @@ pub(crate) fn app() -> App<'static, 'static> {
                      so this option conflicts with time/memory/pids limits.",
                 ),
         )
+        .arg(
+            Arg::with_name("interactive")
+                .long("interactive")
+                .help("whether to run in interactive mode.")
+                .conflicts_with("stdin")
+                .long_help(
+                    "whether to run in interactive mode. This is necessary if you would\n\
+                     rather supply the standard input (instead of redirecting it from a\n\
+                     file), like for example to run a bash shell.",
+                ),
+        )
+        .arg(
+            Arg::with_name("env")
+                .long("env")
+                .short("e")
+                .multiple(true)
+                .number_of_values(1)
+                .help("an environment variable to pass to the process inside the sandbox")
+                .long_help(
+                    "an environment variable to pass to the process inside the sandbox.\n\
+                     Given as NAME=VALUE.",
+                ),
+        )
+        .arg(
+            Arg::with_name("forward-env")
+                .long("forward-env")
+                .help("whether to forward all environment variables")
+                .conflicts_with("env")
+                .long_help(
+                    "whether to forward all environmnet variabiles. If starting a shell\n\
+                     this is useful for setting up proper functionality. Be careful as \n\
+                     this might expose sensitive information.",
+                ),
+        )
 }

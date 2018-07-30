@@ -1,6 +1,6 @@
 use std::cmp;
 use std::error::Error;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -71,8 +71,21 @@ where
         })
 }
 
+const ISOLATED_CGROUP_NAME: &str = "isolated";
 pub(crate) fn enter_cgroup(controller_path: &Path) -> Result<()> {
-    cgroup_write(controller_path, "tasks", format!("{}\n", ffi::getpid()))
+    let isolated_cgroup = controller_path.join(ISOLATED_CGROUP_NAME);
+
+    if !isolated_cgroup.exists() {
+        fs::create_dir(&isolated_cgroup).map_err(|err| {
+            CGroupError::InstanceControllerCreateError {
+                controller_path: controller_path.to_path_buf(),
+                instance_name: OsString::from(ISOLATED_CGROUP_NAME),
+                error: err.description().into(),
+            }
+        })?;
+    }
+
+    cgroup_write(&isolated_cgroup, "tasks", format!("{}\n", ffi::getpid()))
 }
 
 const DEFAULT_INSTANCE_NAME: &str = "default";

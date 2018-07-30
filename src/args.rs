@@ -5,8 +5,8 @@ use std::result;
 use std::time::Duration;
 
 use ia_sandbox::config::{
-    ClearUsage, Config, ControllerPath, Limits, Mount, MountOptions, ShareNet, SpaceUsage,
-    SwapRedirects,
+    ClearUsage, Config, ControllerPath, Environment, Interactive, Limits, Mount, MountOptions,
+    ShareNet, SpaceUsage, SwapRedirects,
 };
 
 use app;
@@ -117,6 +117,15 @@ fn parse_mount(string: &str) -> Result<Mount> {
     }
 }
 
+fn parse_environment(string: &str) -> Result<(String, String)> {
+    let parts: Vec<&str> = string.splitn(2, '=').collect();
+
+    match *parts.as_slice() {
+        [name, value] => Ok((name.to_owned(), value.to_owned())),
+        _ => Err(format_err!("Could not parse env KEY=VALUE")),
+    }
+}
+
 fn flip_option_result<T>(arg: Option<Result<T>>) -> Result<Option<T>> {
     match arg {
         None => Ok(None),
@@ -154,6 +163,8 @@ impl<'a> ArgMatches<'a> {
             self.mounts()?,
             self.swap_redirects(),
             self.clear_usage(),
+            self.interactive(),
+            self.environment()?,
         );
 
         Ok((config, self.output_type()))
@@ -277,6 +288,27 @@ impl<'a> ArgMatches<'a> {
             ClearUsage::No
         } else {
             ClearUsage::Yes
+        }
+    }
+
+    fn interactive(&self) -> Interactive {
+        if self.is_present("interactive") {
+            Interactive::Yes
+        } else {
+            Interactive::No
+        }
+    }
+
+    fn environment(&self) -> Result<Environment> {
+        if self.is_present("forward-env") {
+            return Ok(Environment::Forward);
+        }
+
+        match self.values_of("env") {
+            None => Ok(Environment::EnvList(Vec::new())),
+            Some(args) => args.map(parse_environment)
+                .collect::<Result<Vec<_>>>()
+                .map(Environment::EnvList),
         }
     }
 }

@@ -21,7 +21,7 @@ use libc::{
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use config::{Limits, Mount, ShareNet, SpaceUsage};
+use config::{Environment, Limits, Mount, ShareNet, SpaceUsage};
 use errors::{Error, FFIError};
 use run_info::{RunInfo, RunInfoResult, RunUsage};
 
@@ -51,6 +51,7 @@ pub(crate) fn get_user_group_id() -> (UserId, GroupId) {
 pub(crate) fn getpid() -> libc::c_int {
     unsafe { libc::getpid() }
 }
+
 pub(crate) fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
     let uid_error = |_| FFIError::WriteUidError(last_error_string());
     let mut uid_map = OpenOptions::new()
@@ -130,7 +131,7 @@ pub(crate) fn set_alarm_interval(interval: i64) -> Result<()> {
 }
 
 /// how often SIGALRM should trigger (in microseconds)
-const ALARM_TIMER_INTERVAL: i64 = 1_000;
+const ALARM_TIMER_INTERVAL: i64 = 5_000;
 
 pub(crate) fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
 where
@@ -403,7 +404,11 @@ pub(crate) fn mount_proc() -> Result<()> {
 
 const EXEC_RETRIES: usize = 10;
 const RETRY_DELAY: libc::c_uint = 50000;
-pub(crate) fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
+pub(crate) fn exec_command(
+    command: &Path,
+    arguments: &[&OsStr],
+    environment: &Environment,
+) -> Result<()> {
     let arguments_c_string: Vec<_> = iter::once(os_str_to_c_string(command))
         .chain(arguments.iter().map(os_str_to_c_string)) // convert to C pointers
         .collect();
@@ -413,12 +418,31 @@ pub(crate) fn exec_command(command: &Path, arguments: &[&OsStr]) -> Result<()> {
         .chain(iter::once(ptr::null())) // add an ending NULL
         .collect();
     let command_as_c_string = os_str_to_c_string(command);
+    let environment = match environment {
+        Environment::Forward => None,
+        Environment::EnvList(list) => {
+            let envs_c_string: Vec<_> = list.iter()
+                .map(|(key, value)| key.to_owned() + "=" + value)
+                .map(os_str_to_c_string)
+                .collect();
+            Some(envs_c_string)
+        }
+    };
+
     for retry in 0..EXEC_RETRIES {
         let res = unsafe {
-            libc::execv(
-                command_as_c_string.as_ptr(),
-                arguments_with_null_ending.as_slice().as_ptr(),
-            )
+            let command = command_as_c_string.as_ptr();
+            let args = arguments_with_null_ending.as_slice().as_ptr();
+            match environment {
+                None => libc::execv(command, args),
+                Some(ref env_list) => {
+                    let env_with_null_ending: Vec<_> = env_list.iter()
+                        .map(|c_string| c_string.as_ptr())
+                        .chain(iter::once(ptr::null())) // add an ending NULL
+                        .collect();
+                    libc::execve(command, args, env_with_null_ending.as_ptr())
+                }
+            }
         };
 
         if res == -1 {

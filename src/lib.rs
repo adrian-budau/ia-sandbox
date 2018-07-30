@@ -31,7 +31,7 @@ mod ffi;
 pub mod run_info;
 pub mod utils;
 
-use config::{Config, Limits, ShareNet, SwapRedirects};
+use config::{Config, Interactive, Limits, ShareNet, SwapRedirects};
 pub use errors::*;
 use run_info::{RunInfo, RunUsage};
 
@@ -107,11 +107,14 @@ pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
             // /proc/self/uid_map and /proc/self/gid_map
             ffi::set_uid_gid_maps((ffi::UserId::ROOT, ffi::GroupId::ROOT))?;
 
-            // Move the process to a different process group (so it can't kill it's own
-            // father by sending signals to the whole process group)
-            ffi::move_to_different_process_group()?;
+            if config.interactive() == Interactive::No {
+                // Move the process to a different process group (so it can't kill it's own
+                // father by sending signals to the whole process group)
+                // But for interactive applications (mostly to test stuff), leave it there
+                ffi::move_to_different_process_group()?;
+            }
 
-            ffi::exec_command(config.command(), &config.args())?;
+            ffi::exec_command(config.command(), &config.args(), config.environment())?;
 
             Ok(())
         })?.wait(config.limits(), |wall_time| {

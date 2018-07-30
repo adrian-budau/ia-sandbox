@@ -2,7 +2,10 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use ia_sandbox::config::{ClearUsage, Config, Limits, Mount, ShareNet, SpaceUsage, SwapRedirects};
+use ia_sandbox::config::{
+    ClearUsage, Config, Environment, Interactive, Limits, Mount, ShareNet, SpaceUsage,
+    SwapRedirects,
+};
 use ia_sandbox::run_info::RunInfo;
 use ia_sandbox::{self, Result};
 
@@ -116,6 +119,8 @@ impl ConfigBuilder {
             self.mounts.clone(),
             SwapRedirects::No,
             ClearUsage::Yes,
+            Interactive::No,
+            Environment::EnvList(Vec::new()),
         );
 
         ia_sandbox::run_jail(&config)

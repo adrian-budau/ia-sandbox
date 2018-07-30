@@ -21,6 +21,12 @@ pub enum ClearUsage {
     No,
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum Interactive {
+    Yes,
+    No,
+}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SpaceUsage(u64);
 
@@ -243,6 +249,12 @@ impl Mount {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum Environment {
+    Forward,
+    EnvList(Vec<(String, String)>),
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Config {
     command: PathBuf,
@@ -258,6 +270,8 @@ pub struct Config {
     mounts: Vec<Mount>,
     swap_redirects: SwapRedirects,
     clear_usage: ClearUsage,
+    interactive: Interactive,
+    environment: Environment,
 }
 
 impl Config {
@@ -276,6 +290,8 @@ impl Config {
         mounts: Vec<Mount>,
         swap_redirects: SwapRedirects,
         clear_usage: ClearUsage,
+        interactive: Interactive,
+        environment: Environment,
     ) -> Self {
         Self {
             command,
@@ -291,6 +307,8 @@ impl Config {
             mounts,
             swap_redirects,
             clear_usage,
+            interactive,
+            environment,
         }
     }
 
@@ -355,5 +373,13 @@ impl Config {
 
     pub fn clear_usage(&self) -> ClearUsage {
         self.clear_usage
+    }
+
+    pub fn interactive(&self) -> Interactive {
+        self.interactive
+    }
+
+    pub fn environment(&self) -> &Environment {
+        &self.environment
     }
 }
