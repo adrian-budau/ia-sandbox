@@ -19,28 +19,28 @@ use utils::matchers::{
 };
 use utils::{LimitsBuilder, PivotRoot, RunInfoExt, TestRunnerHelper};
 
-const HELLO_WORLD: &str = "./target/release/hello_world";
+const HELLO_WORLD: &str = "./target/debug/hello_world";
 
-const EXIT_WITH_INPUT: &str = "./target/release/exit_with_input";
+const EXIT_WITH_INPUT: &str = "./target/debug/exit_with_input";
 
-const EXIT_WITH_LAST_ARGUMENT: &str = "./target/release/exit_with_last_argument";
+const EXIT_WITH_LAST_ARGUMENT: &str = "./target/debug/exit_with_last_argument";
 
 #[cfg(feature = "nightly")]
 const KILL_WITH_SIGNAL_ARG: &str = "./target/debug/kill_with_signal_arg";
 
-const SLEEP_1_SECOND: &str = "./target/release/sleep_1_second";
+const SLEEP_1_SECOND: &str = "./target/debug/sleep_1_second";
 
-const LOOP_500_MS: &str = "./target/release/loop_500_ms";
+const LOOP_500_MS: &str = "./target/debug/loop_500_ms";
 
-const THREADS_LOOP_500_MS: &str = "./target/release/threads_loop_500_ms";
+const THREADS_LOOP_500_MS: &str = "./target/debug/threads_loop_500_ms";
 
-const ALLOCATE_20_MEGABYTES: &str = "./target/release/allocate_20_megabytes";
+const ALLOCATE_20_MEGABYTES: &str = "./target/debug/allocate_20_megabytes";
 
-const THREADS_ALLOCATE_20_MEGABYTES: &str = "./target/release/threads_allocate_20_megabytes";
+const THREADS_ALLOCATE_20_MEGABYTES: &str = "./target/debug/threads_allocate_20_megabytes";
 
-const THREADS_SLEEP_1_SECOND: &str = "./target/release/threads_sleep_1_second";
+const THREADS_SLEEP_1_SECOND: &str = "./target/debug/threads_sleep_1_second";
 
-const EXIT_WITH_ARG_FILE: &str = "./target/release/exit_with_arg_file";
+const EXIT_WITH_ARG_FILE: &str = "./target/debug/exit_with_arg_file";
 
 #[test]
 fn test_basic_sandbox() {

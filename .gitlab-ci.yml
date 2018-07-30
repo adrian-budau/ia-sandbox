@@ -8,7 +8,6 @@ build:nightly:
     - source $HOME/.cargo/env
     - rustup component add clippy-preview
     - cargo build --features integration-test,nightly --all-targets
-    - cargo build --features integration-test,nightly --all-targets --release
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test --features nightly -v
     - cargo clippy --features nightly --all-targets
@@ -20,7 +19,6 @@ build:stable:
     - source $HOME/.cargo/env
     - rustup component add rustfmt-preview
     - cargo build --features integration-test --all-targets
-    - cargo build --features integration-test --all-targets --release
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test -v
     - cargo fmt -- --write-mode check
@@ -31,6 +29,5 @@ build:beta:
     - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain beta
     - source $HOME/.cargo/env
     - cargo build --features integration-test --all-targets
-    - cargo build --features integration-test --all-targets --release
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test -v
