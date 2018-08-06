@@ -60,7 +60,7 @@ fn main() {
             process::exit(0);
         }
         Err(err) => {
-            let mut fail: &dyn Fail = err.cause();
+            let mut fail: &dyn Fail = err.as_fail();
             eprintln!("{}", fail);
             while let Some(cause) = fail.cause() {
                 eprintln!("{}", cause);

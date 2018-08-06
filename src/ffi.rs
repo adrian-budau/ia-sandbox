@@ -421,7 +421,8 @@ pub(crate) fn exec_command(
     let environment = match environment {
         Environment::Forward => None,
         Environment::EnvList(list) => {
-            let envs_c_string: Vec<_> = list.iter()
+            let envs_c_string: Vec<_> = list
+                .iter()
                 .map(|(key, value)| key.to_owned() + "=" + value)
                 .map(os_str_to_c_string)
                 .collect();
@@ -645,12 +646,15 @@ impl<T: DeserializeOwned> CloneHandle<T> {
     ) -> StdResult<RunInfo<Option<T>>, Error> {
         let timer = Instant::now();
         let mut data = Vec::new();
-        let _ = self.read_error_pipe
+        let _ = self
+            .read_error_pipe
             .read_to_end(&mut data)
             .map_err(|err| Error::DeserializeError(err.description().into()))?;
         let result = if !data.is_empty() {
-            Some(bincode::deserialize(&data)
-                .map_err(|err| Error::DeserializeError(err.description().into()))?)
+            Some(
+                bincode::deserialize(&data)
+                    .map_err(|err| Error::DeserializeError(err.description().into()))?,
+            )
         } else {
             None
         };

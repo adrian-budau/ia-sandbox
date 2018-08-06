@@ -306,7 +306,8 @@ impl<'a> ArgMatches<'a> {
 
         match self.values_of("env") {
             None => Ok(Environment::EnvList(Vec::new())),
-            Some(args) => args.map(parse_environment)
+            Some(args) => args
+                .map(parse_environment)
                 .collect::<Result<Vec<_>>>()
                 .map(Environment::EnvList),
         }

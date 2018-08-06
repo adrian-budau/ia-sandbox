@@ -21,7 +21,7 @@ build:stable:
     - cargo build --features integration-test --all-targets
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test -v
-    - cargo fmt -- --write-mode check
+    - cargo fmt -- --check
 
 build:beta:
   stage: build_and_test
@@ -31,3 +31,12 @@ build:beta:
     - cargo build --features integration-test --all-targets
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test -v
+
+build:nightly:minimal:
+  stage: build_and_test
+  script:
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+    - source $HOME/.cargo/env
+    - cargo build --features integration-test,nightly --all-targets -Z minimal-versions
+    - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
+    - cargo test --features nightly -v
