@@ -486,14 +486,6 @@ pub(crate) const STDERR: &Fd = &Fd(
 );
 
 pub(crate) fn redirect_fd(fd: &Fd, path: &Path) -> Result<()> {
-    if unsafe { libc::close(fd.0) } == -1 {
-        return Err(FFIError::CloseFdError {
-            fd: fd.0,
-            name: fd.1.into(),
-            error: last_error_string(),
-        });
-    }
-
     let path_as_c_string = os_str_to_c_string(path);
     match unsafe { libc::open(path_as_c_string.as_ptr(), fd.2, fd.3) } {
         -1 => Err(FFIError::OpenFdError {
@@ -501,12 +493,15 @@ pub(crate) fn redirect_fd(fd: &Fd, path: &Path) -> Result<()> {
             name: fd.1.into(),
             error: last_error_string(),
         }),
-        x if x != fd.0 => Err(FFIError::OpenFdError {
-            fd: fd.0,
-            name: fd.1.into(),
-            error: format!("Wrong file descritor opened {}", x),
-        }),
-        _ => Ok(()),
+        x => if x != fd.0 && unsafe { libc::dup2(x, fd.0) } == -1 {
+            Err(FFIError::DupFdError {
+                fd: fd.0,
+                name: fd.1.into(),
+                error: last_error_string(),
+            })
+        } else {
+            Ok(())
+        },
     }
 }
 

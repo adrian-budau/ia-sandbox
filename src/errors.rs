@@ -10,8 +10,8 @@ pub enum FFIError {
     ChrootError { path: PathBuf, error: String },
     #[fail(display = "Could not clone process: {}", _0)]
     CloneError(String),
-    #[fail(display = "Could not close file descriptor {}({}): {}", name, fd, error)]
-    CloseFdError {
+    #[fail(display = "Could not dup file descriptor {}({}): {}", name, fd, error)]
+    DupFdError {
         fd: i32,
         name: String,
         error: String,
