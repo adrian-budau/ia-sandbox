@@ -133,7 +133,7 @@ pub(crate) fn set_alarm_interval(interval: i64) -> Result<()> {
 /// how often SIGALRM should trigger (in microseconds)
 const ALARM_TIMER_INTERVAL: i64 = 5_000;
 
-pub(crate) fn clone<F, T: Debug>(share_net: ShareNet, f: F) -> Result<CloneHandle<T>>
+pub(crate) fn clone<F, T: Debug>(share_net: ShareNet, vfork: bool, f: F) -> Result<CloneHandle<T>>
 where
     F: FnOnce() -> T + Send,
     T: Serialize,
@@ -159,15 +159,14 @@ where
         0
     }
 
-    let mut clone_flags = CLONE_NEWUSER
-        | CLONE_NEWPID
-        | CLONE_NEWIPC
-        | CLONE_NEWUTS
-        | CLONE_NEWNS
-        | CLONE_VFORK
-        | SIGCHLD;
+    let mut clone_flags =
+        CLONE_NEWUSER | CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | SIGCHLD;
     if share_net == ShareNet::Unshare {
         clone_flags |= CLONE_NEWNET;
+    }
+
+    if vfork {
+        clone_flags |= CLONE_VFORK;
     }
 
     let mut child_stack = vec![0; DEFAULT_STACK_SIZE];

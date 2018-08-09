@@ -33,9 +33,10 @@ pub mod utils;
 
 use config::{Config, Interactive, Limits, ShareNet, SwapRedirects};
 pub use errors::*;
+use ffi::CloneHandle;
 use run_info::{RunInfo, RunUsage};
 
-pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
+pub fn spawn_jail(config: &Config) -> Result<JailHandle> {
     let user_group_id = ffi::get_user_group_id();
 
     ffi::set_sig_alarm_handler().map_err(Error::FFIError)?;
@@ -43,14 +44,14 @@ pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
     // Start a supervisor process in a different pid namespace
     // If by any chance the supervisor process dies, by rules of pid namespaces
     // all its descendant processes will die as well
-    ffi::clone(ShareNet::Share, || {
+    ffi::clone(ShareNet::Share, false, || {
         ffi::kill_on_parent_death()?;
         // Mount proc just for security
         ffi::mount_proc()?;
         // Without setting uid/gid maps user is not seen so it can not do anything
         ffi::set_uid_gid_maps(user_group_id)?;
 
-        ffi::clone(config.share_net(), || {
+        ffi::clone(config.share_net(), true, || {
             if config.swap_redirects() == SwapRedirects::Yes {
                 if let Some(stdout) = config.redirect_stdout() {
                     ffi::redirect_fd(ffi::STDOUT, stdout)?;
@@ -130,12 +131,29 @@ pub fn run_jail(config: &Config) -> Result<RunInfo<()>> {
                     Some(result) => result.map_err(Error::ChildError),
                 })
             })
-    })?.wait(Limits::default(), |_| Ok(RunUsage::default()))
-        .and_then(|run_info| {
-            run_info
-                .success() // we only care if supervisor process successfully finished
-                .and_then(|x| x) // its an option inside an option, so flatten it
-                .ok_or(Error::SupervisorProcessDiedError)
-                .and_then(|x| x) // result in result, flatten it
-        })
+    }).map(JailHandle::new)
+        .map_err(Error::from)
+}
+
+#[allow(missing_debug_implementations)]
+pub struct JailHandle {
+    handle: CloneHandle<Result<RunInfo<()>>>,
+}
+
+impl JailHandle {
+    fn new(handle: CloneHandle<Result<RunInfo<()>>>) -> Self {
+        Self { handle }
+    }
+
+    pub fn wait(self) -> Result<RunInfo<()>> {
+        self.handle
+            .wait(Limits::default(), |_| Ok(RunUsage::default()))
+            .and_then(|run_info| {
+                run_info
+                    .success() // we only care if supervisor process successfully finished
+                    .and_then(|x| x) // its an option inside an option, so flatten it
+                    .ok_or(Error::SupervisorProcessDiedError)
+                    .and_then(|x| x) // result in result, flatten it
+            })
+    }
 }

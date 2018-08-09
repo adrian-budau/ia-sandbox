@@ -1,10 +1,13 @@
+use std::ffi::CString;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use ia_sandbox::run_info::RunInfo;
 
+use libc;
 use tempfile::{Builder, TempDir};
 
 mod builder;
@@ -149,6 +152,14 @@ impl<'a> Drop for TestRunnerHelper<'a> {
             .unwrap_or(());
         fs::remove_dir(Path::new("/sys/fs/cgroup/pids/ia-sandbox").join(self.test_name))
             .unwrap_or(());
+    }
+}
+
+pub fn make_fifo(path: &Path) {
+    let path_c_string = CString::new(path.as_os_str().as_bytes()).unwrap();
+
+    if unsafe { libc::mkfifo(path_c_string.as_ptr(), 0o666) } == -1 {
+        panic!("Could not make fifo at {}", path.display());
     }
 }
 

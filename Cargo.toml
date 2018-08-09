@@ -1,6 +1,6 @@
 [package]
 name = "ia-sandbox"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["Adrian Budau <budau.adi@gmail.com>"]
 description = "A CLI to sandbox (jail) and collect usage of applications."
 documentation = "https://gitlab.com/adrian.budau/ia-sandbox"
@@ -99,3 +99,13 @@ path = "test-fixtures/exit_with_arg_file.rs"
 required-features = ["integration-test"]
 name = "exit_with_env"
 path = "test-fixtures/exit_with_env.rs"
+
+[[bin]]
+required-features = ["integration-test"]
+name = "write_then_read"
+path = "test-fixtures/write_then_read.rs"
+
+[[bin]]
+required-features = ["integration-test"]
+name = "read_then_write"
+path = "test-fixtures/read_then_write.rs"

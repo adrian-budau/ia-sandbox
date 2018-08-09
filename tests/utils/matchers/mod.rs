@@ -137,6 +137,33 @@ impl Matcher for MemoryLimitExceeded {
     }
 }
 
+pub struct AnnotateAssert<T: Matcher> {
+    matcher: T,
+    annotate: Cow<'static, str>,
+}
+
+impl<T: Matcher> AnnotateAssert<T> {
+    pub fn new<A: Into<Cow<'static, str>>>(matcher: T, annotate: A) -> Self {
+        Self {
+            matcher,
+            annotate: annotate.into(),
+        }
+    }
+}
+
+impl<T: Matcher> Matcher for AnnotateAssert<T> {
+    type AssertionString = String;
+    type Output = <T as Matcher>::Output;
+
+    fn assertion_string(&self) -> Self::AssertionString {
+        format!("{}: {}", self.annotate, self.matcher.assertion_string())
+    }
+
+    fn try_match(&self, run_info: RunInfo<()>) -> Result<(), Self::Output> {
+        self.matcher.try_match(run_info)
+    }
+}
+
 pub struct CompareLimits<T: Matcher> {
     matcher: T,
     limits: Limits,

@@ -7,7 +7,7 @@ use ia_sandbox::config::{
     SpaceUsage, SwapRedirects,
 };
 use ia_sandbox::run_info::RunInfo;
-use ia_sandbox::{self, Result};
+use ia_sandbox::{self, JailHandle, Result};
 
 pub struct ConfigBuilder {
     command: PathBuf,
@@ -20,6 +20,7 @@ pub struct ConfigBuilder {
     limits: Option<Limits>,
     instance_name: Option<OsString>,
     mounts: Vec<Mount>,
+    swap_redirects: SwapRedirects,
     clear_usage: ClearUsage,
     environment: Environment,
 }
@@ -37,6 +38,7 @@ impl ConfigBuilder {
             limits: None,
             instance_name: Some("test".into()),
             mounts: Vec::new(),
+            swap_redirects: SwapRedirects::default(),
             clear_usage: ClearUsage::default(),
             environment: Environment::default(),
         }
@@ -104,6 +106,11 @@ impl ConfigBuilder {
         self
     }
 
+    pub fn swap_redirects(&mut self, swap_redirects: SwapRedirects) -> &mut ConfigBuilder {
+        self.swap_redirects = swap_redirects;
+        self
+    }
+
     pub fn clear_usage(&mut self, clear_usage: ClearUsage) -> &mut ConfigBuilder {
         self.clear_usage = clear_usage;
         self
@@ -114,7 +121,7 @@ impl ConfigBuilder {
         self
     }
 
-    pub fn build_and_run(&mut self) -> Result<RunInfo<()>> {
+    pub fn build_and_spawn(&mut self) -> Result<JailHandle> {
         let config = Config::new(
             self.command.clone(),
             self.args.clone(),
@@ -131,13 +138,17 @@ impl ConfigBuilder {
             self.instance_name.clone(),
             ControllerPath::default(),
             self.mounts.clone(),
-            SwapRedirects::default(),
+            self.swap_redirects,
             self.clear_usage,
             Interactive::default(),
             self.environment.clone(),
         );
 
-        ia_sandbox::run_jail(&config)
+        ia_sandbox::spawn_jail(&config)
+    }
+
+    pub fn build_and_run(&mut self) -> Result<RunInfo<()>> {
+        self.build_and_spawn()?.wait()
     }
 }
 

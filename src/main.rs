@@ -35,7 +35,9 @@ mod args;
 use args::OutputType;
 
 fn main() {
-    match args::parse().and_then(|(args, output)| Ok((ia_sandbox::run_jail(&args)?, output))) {
+    match args::parse()
+        .and_then(|(args, output)| Ok((ia_sandbox::spawn_jail(&args)?.wait()?, output)))
+    {
         Ok((run_info, output)) => {
             match output {
                 OutputType::Human => println!("{}", run_info),

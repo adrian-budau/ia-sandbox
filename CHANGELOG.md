@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2018-08-10
+### Added
+- Interactive tasks test (2 process communicating by stdin/stdout). Was also
+  used to test `swap-redirects` is properly working.
+
+### Changed
+- `run_jail` is gone and `spawn_jail` has taken its place.
+
 ## [0.1.3] - 2018-08-10
 ### Changed
 - stdin/stdout/stderr redirection is now using `dup` instead of assuming

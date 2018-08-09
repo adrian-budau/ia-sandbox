@@ -1,11 +1,12 @@
 extern crate ia_sandbox;
+extern crate libc;
 extern crate tempfile;
 
 use std::fs::File;
 use std::io::Write;
 use std::time::Duration;
 
-use ia_sandbox::config::{ClearUsage, Environment, Mount, MountOptions, SpaceUsage};
+use ia_sandbox::config::{ClearUsage, Environment, Mount, MountOptions, SpaceUsage, SwapRedirects};
 use ia_sandbox::errors::{ChildError, Error, FFIError};
 
 use tempfile::Builder;
@@ -14,8 +15,8 @@ mod utils;
 #[cfg(feature = "nightly")]
 use utils::matchers::KilledBySignal;
 use utils::matchers::{
-    CompareLimits, IsSuccess, MemoryLimitExceeded, NonZeroExitStatus, TimeLimitExceeded,
-    WallTimeLimitExceeded,
+    AnnotateAssert, CompareLimits, IsSuccess, MemoryLimitExceeded, NonZeroExitStatus,
+    TimeLimitExceeded, WallTimeLimitExceeded,
 };
 use utils::{LimitsBuilder, PivotRoot, RunInfoExt, TestRunnerHelper};
 
@@ -43,6 +44,9 @@ const THREADS_SLEEP_1_SECOND: &str = "./target/debug/threads_sleep_1_second";
 const EXIT_WITH_ARG_FILE: &str = "./target/debug/exit_with_arg_file";
 
 const EXIT_WITH_ENV: &str = "./target/debug/exit_with_env";
+
+const WRITE_THEN_READ: &str = "./target/debug/write_then_read";
+const READ_THEN_WRITE: &str = "./target/debug/read_then_write";
 
 #[test]
 fn test_basic_sandbox() {
@@ -427,4 +431,54 @@ fn test_environment() {
         .build_and_run()
         .unwrap()
         .assert(NonZeroExitStatus::new(12));
+}
+
+#[test]
+fn test_interactive() {
+    let temp_dir = Builder::new().prefix("test_interactive").tempdir().unwrap();
+
+    let a_path = temp_dir.path().join("a_file");
+    let b_path = temp_dir.path().join("b_file");
+
+    utils::make_fifo(&a_path);
+    utils::make_fifo(&b_path);
+
+    let mut limits = LimitsBuilder::new();
+    limits.wall_time(Duration::from_secs(1));
+
+    let mut write_then_read_helper = TestRunnerHelper::for_simple_exec(
+        "test_interactive_write_then_read",
+        WRITE_THEN_READ,
+        PivotRoot::Pivot,
+    );
+    let write_then_read = write_then_read_helper
+        .config_builder()
+        .limits(limits)
+        .stdout(&a_path)
+        .stdin(&b_path)
+        .swap_redirects(SwapRedirects::Yes)
+        .build_and_spawn()
+        .unwrap();
+
+    let mut read_then_write_helper = TestRunnerHelper::for_simple_exec(
+        "test_interactive_read_then_write",
+        READ_THEN_WRITE,
+        PivotRoot::Pivot,
+    );
+    let read_then_write = read_then_write_helper
+        .config_builder()
+        .limits(limits)
+        .stdin(&a_path)
+        .stdout(&b_path)
+        .build_and_spawn()
+        .unwrap();
+
+    write_then_read
+        .wait()
+        .unwrap()
+        .assert(AnnotateAssert::new(IsSuccess, "write_then_read"));
+    read_then_write
+        .wait()
+        .unwrap()
+        .assert(AnnotateAssert::new(IsSuccess, "read_then_write"));
 }
