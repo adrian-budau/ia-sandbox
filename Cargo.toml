@@ -1,6 +1,6 @@
 [package]
 name = "ia-sandbox"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Adrian Budau <budau.adi@gmail.com>"]
 description = "A CLI to sandbox (jail) and collect usage of applications."
 documentation = "https://gitlab.com/adrian.budau/ia-sandbox"
