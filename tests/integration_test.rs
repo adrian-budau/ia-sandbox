@@ -168,20 +168,20 @@ fn test_killed_by_signal() {
         KILL_WITH_SIGNAL_ARG,
         PivotRoot::Pivot,
     ).config_builder()
-        .arg("8")
-        .build_and_run()
-        .unwrap()
-        .assert(KilledBySignal(8));
+    .arg("8")
+    .build_and_run()
+    .unwrap()
+    .assert(KilledBySignal(8));
 
     TestRunnerHelper::for_simple_exec(
         "test_killed_by_signal",
         KILL_WITH_SIGNAL_ARG,
         PivotRoot::Pivot,
     ).config_builder()
-        .arg("11")
-        .build_and_run()
-        .unwrap()
-        .assert(KilledBySignal(11));
+    .arg("11")
+    .build_and_run()
+    .unwrap()
+    .assert(KilledBySignal(11));
 }
 
 #[test]
@@ -194,10 +194,10 @@ fn test_wall_time_limit_exceeded() {
         SLEEP_1_SECOND,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(IsSuccess, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(IsSuccess, limits));
 
     limits.wall_time(Duration::from_millis(800));
     TestRunnerHelper::for_simple_exec(
@@ -205,10 +205,10 @@ fn test_wall_time_limit_exceeded() {
         SLEEP_1_SECOND,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(WallTimeLimitExceeded, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(WallTimeLimitExceeded, limits));
 }
 
 #[test]
@@ -242,10 +242,10 @@ fn test_threads_time_limit_exceeded() {
         THREADS_LOOP_500_MS,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(IsSuccess, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(IsSuccess, limits));
 
     limits.user_time(Duration::from_millis(450));
     TestRunnerHelper::for_simple_exec(
@@ -253,10 +253,10 @@ fn test_threads_time_limit_exceeded() {
         THREADS_LOOP_500_MS,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(TimeLimitExceeded, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(TimeLimitExceeded, limits));
 }
 
 #[test]
@@ -269,10 +269,10 @@ fn test_threads_wall_time_limit_exceeded() {
         THREADS_SLEEP_1_SECOND,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(IsSuccess, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(IsSuccess, limits));
 
     limits.wall_time(Duration::from_millis(800));
     TestRunnerHelper::for_simple_exec(
@@ -280,10 +280,10 @@ fn test_threads_wall_time_limit_exceeded() {
         THREADS_SLEEP_1_SECOND,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(WallTimeLimitExceeded, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(WallTimeLimitExceeded, limits));
 }
 
 #[test]
@@ -296,10 +296,10 @@ fn test_memory_limit_exceeded() {
         ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(IsSuccess, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(IsSuccess, limits));
 
     limits.memory(SpaceUsage::from_megabytes(19));
     TestRunnerHelper::for_simple_exec(
@@ -307,10 +307,10 @@ fn test_memory_limit_exceeded() {
         ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(MemoryLimitExceeded, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(MemoryLimitExceeded, limits));
 }
 
 #[test]
@@ -323,10 +323,10 @@ fn test_threads_memory_limit_exceeded() {
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(IsSuccess, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(IsSuccess, limits));
 
     limits.memory(SpaceUsage::from_megabytes(19));
     TestRunnerHelper::for_simple_exec(
@@ -334,10 +334,10 @@ fn test_threads_memory_limit_exceeded() {
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(MemoryLimitExceeded, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(MemoryLimitExceeded, limits));
 }
 
 #[test]
@@ -350,10 +350,10 @@ fn test_pids_limit_exceeded() {
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(IsSuccess, limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(IsSuccess, limits));
 
     limits.pids(4);
     TestRunnerHelper::for_simple_exec(
@@ -361,10 +361,10 @@ fn test_pids_limit_exceeded() {
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
     ).config_builder()
-        .limits(limits)
-        .build_and_run()
-        .unwrap()
-        .assert(CompareLimits::new(NonZeroExitStatus::any(), limits));
+    .limits(limits)
+    .build_and_run()
+    .unwrap()
+    .assert(CompareLimits::new(NonZeroExitStatus::any(), limits));
 }
 
 #[test]
@@ -383,8 +383,7 @@ fn test_mount_directory() {
             temp_dir.path().into(),
             "/mount".into(),
             MountOptions::default(),
-        ))
-        .arg("/mount/input")
+        )).arg("/mount/input")
         .build_and_run()
         .unwrap()
         .assert(NonZeroExitStatus::new(15));
@@ -427,8 +426,7 @@ fn test_environment() {
         .environment(Environment::EnvList(vec![(
             "arg".to_owned(),
             "12".to_owned(),
-        )]))
-        .build_and_run()
+        )])).build_and_run()
         .unwrap()
         .assert(NonZeroExitStatus::new(12));
 }

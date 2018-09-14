@@ -36,15 +36,13 @@ where
                 .split_whitespace()
                 .map(|s| s.to_owned())
                 .collect::<Vec<_>>()
-        })
-        .filter_map(|token| {
+        }).filter_map(|token| {
             if token.starts_with('/') {
                 Some(token.into())
             } else {
                 None
             }
-        })
-        .collect()
+        }).collect()
 }
 
 // Until https://marc.info/?l=linux-kernel&m=150834137201488 gets resolved, we can't

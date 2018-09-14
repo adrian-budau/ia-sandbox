@@ -8,8 +8,7 @@ fn main() {
             thread::spawn(|| {
                 thread::sleep(Duration::from_secs(1));
             })
-        })
-        .collect();
+        }).collect();
 
     for thread in threads {
         thread.join().unwrap();

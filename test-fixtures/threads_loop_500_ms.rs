@@ -26,8 +26,7 @@ fn main() {
                     }
                 }
             })
-        })
-        .collect();
+        }).collect();
 
     for thread in threads {
         thread.join().unwrap();

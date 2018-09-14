@@ -6,22 +6,21 @@ build:nightly:
   script:
     - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
     - source $HOME/.cargo/env
-    - rustup component add clippy-preview
     - cargo build --features integration-test,nightly --all-targets
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test --features nightly -v
-    - cargo clippy --features nightly --all-targets
 
 build:stable:
   stage: build_and_test
   script:
     - curl https://sh.rustup.rs -sSf | sh -s -- -y
     - source $HOME/.cargo/env
-    - rustup component add rustfmt-preview
+    - rustup component add rustfmt-preview clippy-preview
     - cargo build --features integration-test --all-targets
     - mkdir /sys/fs/cgroup/{cpuacct,memory,pids}/ia-sandbox
     - cargo test -v
     - cargo fmt -- --check
+    - cargo clippy --all-targets
 
 build:beta:
   stage: build_and_test

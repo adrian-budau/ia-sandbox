@@ -99,10 +99,12 @@ fn get_instance_path(controller_path: &Path, instance_name: Option<&OsStr>) -> R
 
     let instance_path = controller_path.join(instance);
     if !instance_path.exists() {
-        fs::create_dir(&instance_path).map_err(|err| CGroupError::InstanceControllerCreateError {
-            controller_path: controller_path.to_path_buf(),
-            instance_name: instance.to_os_string(),
-            error: err.description().into(),
+        fs::create_dir(&instance_path).map_err(|err| {
+            CGroupError::InstanceControllerCreateError {
+                controller_path: controller_path.to_path_buf(),
+                instance_name: instance.to_os_string(),
+                error: err.description().into(),
+            }
         })?;
     }
     Ok(instance_path)

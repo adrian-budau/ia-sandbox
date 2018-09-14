@@ -30,13 +30,11 @@ pub(crate) fn app() -> App<'static, 'static> {
                 .help("The command to be run.")
                 .long_help("The command to be run. It is relative to the pivoted root.")
                 .required(true),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("ARGS")
                 .help("Arguments passed to command")
                 .multiple(true),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("new-root")
                 .short("r")
                 .long("new-root")
@@ -46,8 +44,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                     "The new root of the sandbox. The jail will pivot root\n\
                      to this folder prior to running the command.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("share-net")
                 .long("share-net")
                 .help("Whether to share the net namespace or not")
@@ -56,29 +53,25 @@ pub(crate) fn app() -> App<'static, 'static> {
                      is more secure but it is also slow on multiple\n\
                      successive runs (Linux Kernel Bug).",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("stdin")
                 .long("stdin")
                 .takes_value(true)
                 .help("From where to redirect stdin")
                 .long_help("From where to redirect stdin. The path must be outside the jail"),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("stdout")
                 .long("stdout")
                 .takes_value(true)
                 .help("Where to redirect stdout")
                 .long_help("Where to redirect stdout. The path must be outside the jail"),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("stderr")
                 .long("stderr")
                 .takes_value(true)
                 .help("Where to redirect stderr")
                 .long_help("Where to redirect stderr. The path must be outside the jail"),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("wall-time")
                 .long("wall-time")
                 .short("wt")
@@ -90,8 +83,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      Given as an unsigned number followed by one of the following\n\
                      suffixes ns(nanoseconds), ms(milliseconds) or s(seconds)",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("time")
                 .long("time")
                 .short("t")
@@ -104,8 +96,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      Given as an unsigned number followed by one of the following\n\
                      suffixes: ns(nanoseconds), ms(milliseconds) or s(seconds)",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("memory")
                 .long("memory")
                 .short("m")
@@ -116,8 +107,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      program is allowed to use. Given as an unsigned number followed by\n\
                      one of the usual suffixes b, kb, mb, gb, kib, mib, gib.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("stack")
                 .long("stack")
                 .short("s")
@@ -128,8 +118,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      tu use as stack. Given as an unsigned number followed by\n\
                      one of the usual suffixes b, kb, mb, gb, kib, mib, gib.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("pids")
                 .long("pids")
                 .short("p")
@@ -141,8 +130,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      this program is allowed to create (count includes the program itself).\n\
                      Defaults 50 to protect against fork bombs.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("instance-name")
                 .long("instance-name")
                 .short("i")
@@ -154,8 +142,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      different instance name, otherwise their user times will\n\
                      add up.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("cpuacct-controller")
                 .long("cpuacct-controller")
                 .takes_value(true)
@@ -164,8 +151,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                     "cpuacct controller path. Must have write permissions with the\n\
                      user running the sandbox.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("memory-controller")
                 .long("memory-controller")
                 .takes_value(true)
@@ -174,8 +160,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                     "memory controller path. Must have write permissions with the\n\
                      user running the sandbox.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("pids-controller")
                 .long("pids-controller")
                 .takes_value(true)
@@ -184,8 +169,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                     "pids controller path. Must have write permissions with then\n\
                      user running the sandbox.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("output")
                 .short("o")
                 .long("output")
@@ -200,8 +184,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      oneline - USER_TIME MEMORY VERDICT\n\
                      json - a single json object with 4 fields\n",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("mount")
                 .long("mount")
                 .multiple(true)
@@ -219,8 +202,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      - exec, default is to mount with no exec permissions\n\
                      - dev, default is to mount with no access to devices\n",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("swap-redirects")
                 .long("swap-redirects")
                 .requires("stdin")
@@ -234,8 +216,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      one must open the input and then the output, and the other one must\n\
                      open output and then input.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("no-clear-usage")
                 .long("no-clear-usage")
                 .help("whether to not clear usage (time/memory/pids) from cgroups")
@@ -248,8 +229,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      Because usage is not cleared, it does not make sense to change limits\n\
                      so this option conflicts with time/memory/pids limits.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("interactive")
                 .long("interactive")
                 .help("whether to run in interactive mode.")
@@ -259,8 +239,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                      rather supply the standard input (instead of redirecting it from a\n\
                      file), like for example to run a bash shell.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("env")
                 .long("env")
                 .short("e")
@@ -271,8 +250,7 @@ pub(crate) fn app() -> App<'static, 'static> {
                     "an environment variable to pass to the process inside the sandbox.\n\
                      Given as NAME=VALUE.",
                 ),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("forward-env")
                 .long("forward-env")
                 .help("whether to forward all environment variables")

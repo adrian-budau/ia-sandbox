@@ -1,19 +1,48 @@
 #![cfg_attr(
     feature = "cargo-clippy",
     deny(
-        clone_on_ref_ptr, default_trait_access, doc_markdown, empty_enum,
-        empty_line_after_outer_attr, enum_glob_use, expl_impl_clone_on_copy, fallible_impl_from,
-        filter_map, float_cmp_const, items_after_statements, match_same_arms,
-        multiple_inherent_impl, mut_mut, needless_continue, option_map_unwrap_or,
-        option_map_unwrap_or_else, print_stdout, range_plus_one, replace_consts,
-        result_map_unwrap_or_else, single_match_else, unimplemented, unnecessary_unwrap, use_self,
-        used_underscore_binding, writeln_empty_string, wrong_self_convention
+        clone_on_ref_ptr,
+        default_trait_access,
+        doc_markdown,
+        empty_enum,
+        empty_line_after_outer_attr,
+        enum_glob_use,
+        expl_impl_clone_on_copy,
+        fallible_impl_from,
+        filter_map,
+        float_cmp_const,
+        items_after_statements,
+        match_same_arms,
+        multiple_inherent_impl,
+        mut_mut,
+        needless_continue,
+        option_map_unwrap_or,
+        option_map_unwrap_or_else,
+        print_stdout,
+        range_plus_one,
+        replace_consts,
+        result_map_unwrap_or_else,
+        single_match_else,
+        unimplemented,
+        unnecessary_unwrap,
+        use_self,
+        used_underscore_binding,
+        writeln_empty_string,
+        wrong_self_convention
     )
 )]
 #![deny(
-    missing_copy_implementations, missing_debug_implementations, trivial_casts,
-    trivial_numeric_casts, unreachable_pub, unused_extern_crates, unused_import_braces,
-    unused_qualifications, unused_results, variant_size_differences, warnings
+    missing_copy_implementations,
+    missing_debug_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    unused_results,
+    variant_size_differences,
+    warnings
 )]
 
 extern crate bincode;
@@ -124,15 +153,14 @@ pub fn spawn_jail(config: &Config) -> Result<JailHandle> {
                 config.instance_name(),
                 wall_time,
             )?)
-        })
-            .and_then(|run_info| {
-                run_info.and_then(|option| match option {
-                    None => Ok(()),
-                    Some(result) => result.map_err(Error::ChildError),
-                })
+        }).and_then(|run_info| {
+            run_info.and_then(|option| match option {
+                None => Ok(()),
+                Some(result) => result.map_err(Error::ChildError),
             })
+        })
     }).map(JailHandle::new)
-        .map_err(Error::from)
+    .map_err(Error::from)
 }
 
 #[allow(missing_debug_implementations)]
