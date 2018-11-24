@@ -182,7 +182,7 @@ where
         #[allow(trivial_casts)]
         libc::clone(
             cb::<T, F>,
-            child_stack.as_mut_ptr().offset(child_stack.len() as isize) as *mut libc::c_void,
+            child_stack.as_mut_ptr().add(child_stack.len()) as *mut libc::c_void,
             clone_flags,
             context.as_mut() as *mut _ as *mut _,
         )
@@ -412,7 +412,8 @@ pub(crate) fn exec_command(
         .chain(arguments.iter().map(os_str_to_c_string)) // convert to C pointers
         .collect();
 
-    let arguments_with_null_ending: Vec<_> = arguments_c_string.iter()
+    let arguments_with_null_ending: Vec<_> = arguments_c_string
+        .iter()
         .map(|c_string| c_string.as_ptr())
         .chain(iter::once(ptr::null())) // add an ending NULL
         .collect();
@@ -436,7 +437,8 @@ pub(crate) fn exec_command(
             match environment {
                 None => libc::execv(command, args),
                 Some(ref env_list) => {
-                    let env_with_null_ending: Vec<_> = env_list.iter()
+                    let env_with_null_ending: Vec<_> = env_list
+                        .iter()
                         .map(|c_string| c_string.as_ptr())
                         .chain(iter::once(ptr::null())) // add an ending NULL
                         .collect();
