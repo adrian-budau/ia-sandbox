@@ -305,7 +305,7 @@ pub struct Config {
 }
 
 impl Config {
-    #![cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
+    #![allow(clippy::too_many_arguments)]
     pub fn new(
         command: PathBuf,
         args: Vec<OsString>,

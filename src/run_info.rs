@@ -14,7 +14,7 @@ pub enum RunInfoResult<T> {
     WallTimeLimitExceeded,
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(use_self))]
+#[allow(clippy::use_self)]
 impl<T> RunInfoResult<T> {
     pub fn is_success(&self) -> bool {
         match *self {
@@ -139,7 +139,7 @@ pub struct RunInfo<T> {
     usage: RunUsage,
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(use_self))]
+#[allow(clippy::use_self)]
 impl<T> RunInfo<T> {
     pub fn new(result: RunInfoResult<T>, usage: RunUsage) -> Self {
         Self { result, usage }

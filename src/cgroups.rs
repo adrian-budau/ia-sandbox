@@ -161,7 +161,8 @@ pub(crate) fn enter_memory_cgroup(
                 &instance_path,
                 "memory.memsw.limit_in_bytes",
                 format!("{}\n", memory_limit.as_bytes() + EXTRA_MEMORY_GIVEN),
-            ).unwrap_or(());
+            )
+            .unwrap_or(());
         }
     }
 

@@ -494,15 +494,17 @@ pub(crate) fn redirect_fd(fd: &Fd, path: &Path) -> Result<()> {
             name: fd.1.into(),
             error: last_error_string(),
         }),
-        x => if x != fd.0 && unsafe { libc::dup2(x, fd.0) } == -1 {
-            Err(FFIError::DupFdError {
-                fd: fd.0,
-                name: fd.1.into(),
-                error: last_error_string(),
-            })
-        } else {
-            Ok(())
-        },
+        x => {
+            if x != fd.0 && unsafe { libc::dup2(x, fd.0) } == -1 {
+                Err(FFIError::DupFdError {
+                    fd: fd.0,
+                    name: fd.1.into(),
+                    error: last_error_string(),
+                })
+            } else {
+                Ok(())
+            }
+        }
     }
 }
 

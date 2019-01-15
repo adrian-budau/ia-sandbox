@@ -22,8 +22,10 @@ fn main() {
                     sender_checkpoint.send(()).unwrap();
                     sender.send(()).unwrap();
                     vec.len()
-                }).unwrap()
-        }).collect();
+                })
+                .unwrap()
+        })
+        .collect();
 
     for _ in 0..NUM_THREADS {
         rx_checkpoint.recv().unwrap();

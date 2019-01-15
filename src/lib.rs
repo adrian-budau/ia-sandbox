@@ -1,37 +1,32 @@
-#![cfg_attr(
-    feature = "cargo-clippy",
-    deny(
-        clone_on_ref_ptr,
-        default_trait_access,
-        doc_markdown,
-        empty_enum,
-        empty_line_after_outer_attr,
-        enum_glob_use,
-        expl_impl_clone_on_copy,
-        fallible_impl_from,
-        filter_map,
-        float_cmp_const,
-        items_after_statements,
-        match_same_arms,
-        multiple_inherent_impl,
-        mut_mut,
-        needless_continue,
-        option_map_unwrap_or,
-        option_map_unwrap_or_else,
-        print_stdout,
-        range_plus_one,
-        replace_consts,
-        result_map_unwrap_or_else,
-        single_match_else,
-        unimplemented,
-        unnecessary_unwrap,
-        use_self,
-        used_underscore_binding,
-        writeln_empty_string,
-        wrong_self_convention
-    )
-)]
 #![deny(
+    clippy::clone_on_ref_ptr,
+    clippy::default_trait_access,
+    clippy::doc_markdown,
+    clippy::empty_enum,
+    clippy::empty_line_after_outer_attr,
+    clippy::enum_glob_use,
+    clippy::expl_impl_clone_on_copy,
+    clippy::fallible_impl_from,
+    clippy::filter_map,
+    clippy::float_cmp_const,
+    clippy::items_after_statements,
+    clippy::match_same_arms,
+    clippy::multiple_inherent_impl,
+    clippy::mut_mut,
+    clippy::needless_continue,
+    clippy::option_map_unwrap_or,
+    clippy::option_map_unwrap_or_else,
+    clippy::print_stdout,
+    clippy::range_plus_one,
+    clippy::replace_consts,
+    clippy::result_map_unwrap_or_else,
+    clippy::single_match_else,
+    clippy::unimplemented,
+    clippy::unnecessary_unwrap,
+    clippy::use_self,
+    clippy::used_underscore_binding,
+    clippy::writeln_empty_string,
+    clippy::wrong_self_convention,
     missing_copy_implementations,
     missing_debug_implementations,
     trivial_casts,
@@ -147,19 +142,22 @@ pub fn spawn_jail(config: &Config) -> Result<JailHandle> {
             ffi::exec_command(config.command(), &config.args(), config.environment())?;
 
             Ok(())
-        })?.wait(config.limits(), |wall_time| {
+        })?
+        .wait(config.limits(), |wall_time| {
             Ok(cgroups::get_usage(
                 config.controller_path(),
                 config.instance_name(),
                 wall_time,
             )?)
-        }).and_then(|run_info| {
+        })
+        .and_then(|run_info| {
             run_info.and_then(|option| match option {
                 None => Ok(()),
                 Some(result) => result.map_err(Error::ChildError),
             })
         })
-    }).map(JailHandle::new)
+    })
+    .map(JailHandle::new)
     .map_err(Error::from)
 }
 

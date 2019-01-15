@@ -167,7 +167,8 @@ fn test_killed_by_signal() {
         "test_killed_by_signal",
         KILL_WITH_SIGNAL_ARG,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .arg("8")
     .build_and_run()
     .unwrap()
@@ -177,7 +178,8 @@ fn test_killed_by_signal() {
         "test_killed_by_signal",
         KILL_WITH_SIGNAL_ARG,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .arg("11")
     .build_and_run()
     .unwrap()
@@ -193,7 +195,8 @@ fn test_wall_time_limit_exceeded() {
         "test_wall_time_limit_exceeded",
         SLEEP_1_SECOND,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -204,7 +207,8 @@ fn test_wall_time_limit_exceeded() {
         "test_wall_time_limit_exceeded",
         SLEEP_1_SECOND,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -241,7 +245,8 @@ fn test_threads_time_limit_exceeded() {
         "test_threads_time_limit_exceeded",
         THREADS_LOOP_500_MS,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -252,7 +257,8 @@ fn test_threads_time_limit_exceeded() {
         "test_threads_time_limit_exceeded",
         THREADS_LOOP_500_MS,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -268,7 +274,8 @@ fn test_threads_wall_time_limit_exceeded() {
         "test_threads_wall_time_limit_exceeded",
         THREADS_SLEEP_1_SECOND,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -279,7 +286,8 @@ fn test_threads_wall_time_limit_exceeded() {
         "test_threads_wall_time_limit_exceeded",
         THREADS_SLEEP_1_SECOND,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -295,7 +303,8 @@ fn test_memory_limit_exceeded() {
         "test_memory_limit_exceeded",
         ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -306,7 +315,8 @@ fn test_memory_limit_exceeded() {
         "test_memory_limit_exceeded",
         ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -322,7 +332,8 @@ fn test_threads_memory_limit_exceeded() {
         "test_threads_memory_limit_exceeded",
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -333,7 +344,8 @@ fn test_threads_memory_limit_exceeded() {
         "test_threads_memory_limit_exceeded",
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -349,7 +361,8 @@ fn test_pids_limit_exceeded() {
         "test_pids_limit_exceeded",
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -360,7 +373,8 @@ fn test_pids_limit_exceeded() {
         "test_pids_limit_exceeded",
         THREADS_ALLOCATE_20_MEGABYTES,
         PivotRoot::Pivot,
-    ).config_builder()
+    )
+    .config_builder()
     .limits(limits)
     .build_and_run()
     .unwrap()
@@ -383,7 +397,8 @@ fn test_mount_directory() {
             temp_dir.path().into(),
             "/mount".into(),
             MountOptions::default(),
-        )).arg("/mount/input")
+        ))
+        .arg("/mount/input")
         .build_and_run()
         .unwrap()
         .assert(NonZeroExitStatus::new(15));
@@ -426,7 +441,8 @@ fn test_environment() {
         .environment(Environment::EnvList(vec![(
             "arg".to_owned(),
             "12".to_owned(),
-        )])).build_and_run()
+        )]))
+        .build_and_run()
         .unwrap()
         .assert(NonZeroExitStatus::new(12));
 }

@@ -10,12 +10,7 @@ pub enum FFIError {
     ChrootError { path: PathBuf, error: String },
     #[fail(display = "Could not clone process: {}", _0)]
     CloneError(String),
-    #[fail(
-        display = "Could not dup file descriptor {}({}): {}",
-        name,
-        fd,
-        error
-    )]
+    #[fail(display = "Could not dup file descriptor {}({}): {}", name, fd, error)]
     DupFdError {
         fd: i32,
         name: String,
@@ -25,9 +20,7 @@ pub enum FFIError {
     CreateDirError { path: PathBuf, error: String },
     #[fail(
         display = "Could not exec {:?} (arguments: {:?}): {}",
-        command,
-        arguments,
-        error
+        command, arguments, error
     )]
     ExecError {
         command: PathBuf,
@@ -36,12 +29,7 @@ pub enum FFIError {
     },
     #[fail(display = "Could not mount path: {:?}: {}", path, error)]
     MountError { path: PathBuf, error: String },
-    #[fail(
-        display = "Could not open file descriptor {}({}): {}",
-        name,
-        fd,
-        error
-    )]
+    #[fail(display = "Could not open file descriptor {}({}): {}", name, fd, error)]
     OpenFdError {
         fd: i32,
         name: String,
@@ -51,46 +39,31 @@ pub enum FFIError {
     Pipe2Error(String),
     #[fail(
         display = "Could not pivot_root to {:?} with old root at {:?}: {}",
-        new_root,
-        old_root,
-        error
+        new_root, old_root, error
     )]
     PivotRootError {
         new_root: PathBuf,
         old_root: PathBuf,
         error: String,
     },
-    #[fail(
-        display = "Could not set process to die when parent dies: {}",
-        _0
-    )]
+    #[fail(display = "Could not set process to die when parent dies: {}", _0)]
     PrSetPDeathSigError(String),
     #[fail(display = "Could not set interval timer alarm: {}", _0)]
     SetITimerError(String),
     #[fail(
         display = "Could not set process group id of {} to {}: {}",
-        pid,
-        pgid,
-        error
+        pid, pgid, error
     )]
     SetpgidError { pid: i32, pgid: i32, error: String },
     #[fail(display = "Could not set resource limit: {}", _0)]
     SetRLimitError(String),
-    #[fail(
-        display = "Could not set a signal handler for {}: {}",
-        signal,
-        error
-    )]
+    #[fail(display = "Could not set a signal handler for {}: {}", signal, error)]
     SigActionError { signal: String, error: String },
     #[fail(display = "Could not umount path: {:?}: {}", path, error)]
     UMountError { path: PathBuf, error: String },
     #[fail(display = "Could not unshare cgroup namespace: {}", _0)]
     UnshareCGroupError(String),
-    #[fail(
-        display = "Could not usleep for {} microseconds: {}",
-        time,
-        error
-    )]
+    #[fail(display = "Could not usleep for {} microseconds: {}", time, error)]
     UsleepError { time: u32, error: String },
     #[fail(display = "Could not write /proc/self/uid_map file: {}", _0)]
     WriteUidError(String),
@@ -98,10 +71,7 @@ pub enum FFIError {
     WriteGidError(String),
     #[fail(display = "Could not wait for process: {}", _0)]
     WaitPidError(String),
-    #[fail(
-        display = "Could not write /proc/self/setgroups file: {}",
-        _0
-    )]
+    #[fail(display = "Could not write /proc/self/setgroups file: {}", _0)]
     WriteSetGroupsError(String),
 }
 
@@ -111,9 +81,7 @@ pub enum CGroupError {
     ControllerMissing(PathBuf),
     #[fail(
         display = "Could not create instance controller under {:?} for {:?}: {}",
-        controller_path,
-        instance_name,
-        error
+        controller_path, instance_name, error
     )]
     InstanceControllerCreateError {
         controller_path: PathBuf,
@@ -122,9 +90,7 @@ pub enum CGroupError {
     },
     #[fail(
         display = "Could not open {:?} for controller {:?}: {}",
-        file,
-        controller_path,
-        error
+        file, controller_path, error
     )]
     OpenCGroupFileError {
         controller_path: PathBuf,
@@ -133,10 +99,7 @@ pub enum CGroupError {
     },
     #[fail(
         display = "Could not parse `{}` from {:?} for controller {:?}: {}",
-        buffer,
-        file,
-        controller_path,
-        error
+        buffer, file, controller_path, error
     )]
     ParseCGroupFileError {
         controller_path: PathBuf,
@@ -147,9 +110,7 @@ pub enum CGroupError {
 
     #[fail(
         display = "Could not read from {:?} for controller {:?}: {}",
-        file,
-        controller_path,
-        error
+        file, controller_path, error
     )]
     ReadCGroupFileError {
         controller_path: PathBuf,
@@ -158,9 +119,7 @@ pub enum CGroupError {
     },
     #[fail(
         display = "Could not write to {:?} for controller {:?}: {}",
-        file,
-        controller_path,
-        error
+        file, controller_path, error
     )]
     WriteCGroupFileError {
         controller_path: PathBuf,
