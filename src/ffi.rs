@@ -34,14 +34,14 @@ const CLONE_NEWNET: libc::c_int = 0x40_000_000;
 pub(crate) struct UserId(libc::uid_t);
 
 impl UserId {
-    pub(crate) const ROOT: Self = UserId(0);
+    pub(crate) const ROOT: Self = Self(0);
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub(crate) struct GroupId(libc::gid_t);
 
 impl GroupId {
-    pub(crate) const ROOT: Self = GroupId(0);
+    pub(crate) const ROOT: Self = Self(0);
 }
 
 pub(crate) fn get_user_group_id() -> (UserId, GroupId) {
@@ -115,12 +115,11 @@ pub(crate) fn set_alarm_interval(interval: i64) -> Result<()> {
     };
 
     if unsafe {
-        #[allow(trivial_casts)]
         libc::syscall(
             libc::SYS_setitimer,
             libc::ITIMER_REAL,
-            &itimerval as *const libc::itimerval,
-            ptr::null() as *const libc::itimerval,
+            &itimerval,
+            ptr::null::<libc::itimerval>(),
         )
     } == -1
     {
@@ -589,7 +588,7 @@ mod errno {
 
     impl Errno {
         pub(crate) fn last_error() -> Self {
-            unsafe { Errno(*libc::__errno_location()) }
+            unsafe { Self(*libc::__errno_location()) }
         }
 
         pub(crate) fn error_code(&self) -> libc::c_int {

@@ -87,7 +87,7 @@ fn parse_mount_options(string: &str) -> Result<MountOptions> {
                 return Err(format_err!(
                     "Could not parse mount option, unrecognized `{}`",
                     option
-                ))
+                ));
             }
         }
     }

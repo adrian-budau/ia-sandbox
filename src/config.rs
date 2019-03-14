@@ -56,7 +56,7 @@ pub struct SpaceUsage(u64);
 
 impl SpaceUsage {
     pub fn from_bytes(bytes: u64) -> Self {
-        SpaceUsage(bytes)
+        Self(bytes)
     }
 
     pub fn from_kilobytes(kilobytes: u64) -> Self {
