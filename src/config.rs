@@ -183,15 +183,15 @@ impl ControllerPath {
     }
 
     pub fn cpuacct(&self) -> Option<&Path> {
-        self.cpuacct.as_ref().map(|path_buf| path_buf.as_path())
+        self.cpuacct.as_ref().map(PathBuf::as_path)
     }
 
     pub fn memory(&self) -> Option<&Path> {
-        self.memory.as_ref().map(|path_buf| path_buf.as_path())
+        self.memory.as_ref().map(PathBuf::as_path)
     }
 
     pub fn pids(&self) -> Option<&Path> {
-        self.pids.as_ref().map(|path_buf| path_buf.as_path())
+        self.pids.as_ref().map(PathBuf::as_path)
     }
 }
 
@@ -347,14 +347,11 @@ impl Config {
     }
 
     pub fn args<'a>(&'a self) -> Vec<&'a OsStr> {
-        self.args
-            .iter()
-            .map(|os_string| os_string.as_os_str())
-            .collect()
+        self.args.iter().map(OsString::as_os_str).collect()
     }
 
     pub fn new_root(&self) -> Option<&Path> {
-        self.new_root.as_ref().map(|path_buf| path_buf.as_path())
+        self.new_root.as_ref().map(PathBuf::as_path)
     }
 
     pub fn share_net(&self) -> ShareNet {
@@ -362,21 +359,15 @@ impl Config {
     }
 
     pub fn redirect_stdin(&self) -> Option<&Path> {
-        self.redirect_stdin
-            .as_ref()
-            .map(|path_buf| path_buf.as_path())
+        self.redirect_stdin.as_ref().map(PathBuf::as_path)
     }
 
     pub fn redirect_stdout(&self) -> Option<&Path> {
-        self.redirect_stdout
-            .as_ref()
-            .map(|path_buf| path_buf.as_path())
+        self.redirect_stdout.as_ref().map(PathBuf::as_path)
     }
 
     pub fn redirect_stderr(&self) -> Option<&Path> {
-        self.redirect_stderr
-            .as_ref()
-            .map(|path_buf| path_buf.as_path())
+        self.redirect_stderr.as_ref().map(PathBuf::as_path)
     }
 
     pub fn limits(&self) -> Limits {
@@ -384,9 +375,7 @@ impl Config {
     }
 
     pub fn instance_name(&self) -> Option<&OsStr> {
-        self.instance_name
-            .as_ref()
-            .map(|os_string| os_string.as_os_str())
+        self.instance_name.as_ref().map(OsString::as_os_str)
     }
 
     pub fn controller_path(&self) -> &ControllerPath {

@@ -66,7 +66,7 @@ fn test_exec_failed() {
         .unwrap_err()
     {
         Error::ChildError(ChildError::FFIError(FFIError::ExecError { .. })) => (),
-        err => assert!(false, "Expected exec error, got {}", err),
+        err => panic!("Expected exec error, got {}", err),
     }
 }
 

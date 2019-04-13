@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::ops;
 use std::path::PathBuf;
 use std::result;
@@ -179,7 +179,7 @@ impl<'a> ArgMatches<'a> {
     fn args(&self) -> Vec<OsString> {
         match self.values_of_os("ARGS") {
             None => vec![],
-            Some(vals) => vals.map(|x| x.to_os_string()).collect(),
+            Some(vals) => vals.map(OsStr::to_os_string).collect(),
         }
     }
 
@@ -243,8 +243,7 @@ impl<'a> ArgMatches<'a> {
     }
 
     fn instance_name(&self) -> Option<OsString> {
-        self.value_of_os("instance-name")
-            .map(|os_str| os_str.to_os_string())
+        self.value_of_os("instance-name").map(OsStr::to_os_string)
     }
 
     fn cpuacct_controller_path(&self) -> Option<PathBuf> {

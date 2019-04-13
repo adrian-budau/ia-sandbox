@@ -34,7 +34,7 @@ where
         .flat_map(|line| {
             line.unwrap()
                 .split_whitespace()
-                .map(|s| s.to_owned())
+                .map(str::to_string)
                 .collect::<Vec<_>>()
         })
         .filter_map(|token| {
