@@ -5,7 +5,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::iter;
 use std::marker::PhantomData;
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::FromRawFd;
 use std::path::{Path, PathBuf};
@@ -88,11 +88,18 @@ pub(crate) fn set_uid_gid_maps((uid, gid): (UserId, GroupId)) -> Result<()> {
 pub(crate) fn set_sig_alarm_handler() -> Result<()> {
     extern "C" fn handler(_: libc::c_int, _: *mut libc::siginfo_t, _: *mut libc::c_void) {}
 
-    let mut sigaction: libc::sigaction = unsafe { mem::uninitialized() };
-    sigaction.sa_flags = libc::SA_SIGINFO;
-    sigaction.sa_sigaction =
-        unsafe { mem::transmute::<_, libc::sighandler_t>(handler as extern "C" fn(_, _, _)) };
-    let _ = unsafe { libc::sigemptyset(&mut sigaction.sa_mask) };
+    let mut sigset = MaybeUninit::<libc::sigset_t>::uninit();
+    let _ = unsafe { libc::sigemptyset(sigset.as_mut_ptr()) };
+
+    let sigaction = libc::sigaction {
+        sa_flags: libc::SA_SIGINFO,
+        sa_sigaction: unsafe {
+            mem::transmute::<_, libc::sighandler_t>(handler as extern "C" fn(_, _, _))
+        },
+        sa_mask: unsafe { sigset.assume_init() },
+        sa_restorer: None,
+    };
+
     if unsafe { libc::sigaction(libc::SIGALRM, &sigaction, ptr::null_mut()) } == -1 {
         Err(FFIError::SigActionError {
             signal: "SIGALRM".into(),
@@ -563,14 +570,17 @@ pub(crate) fn kill_on_parent_death() -> Result<()> {
 }
 
 pub(crate) fn set_stack_limit(stack: Option<SpaceUsage>) -> Result<()> {
-    let mut rlimit: libc::rlimit = unsafe { mem::uninitialized() };
-    if let Some(usage) = stack {
-        rlimit.rlim_cur = usage.as_bytes();
-        rlimit.rlim_max = usage.as_bytes();
+    let rlimit = if let Some(usage) = stack {
+        libc::rlimit {
+            rlim_cur: usage.as_bytes(),
+            rlim_max: usage.as_bytes(),
+        }
     } else {
-        rlimit.rlim_cur = libc::RLIM_INFINITY;
-        rlimit.rlim_max = libc::RLIM_INFINITY;
-    }
+        libc::rlimit {
+            rlim_cur: libc::RLIM_INFINITY,
+            rlim_max: libc::RLIM_INFINITY,
+        }
+    };
 
     if unsafe { libc::setrlimit(libc::RLIMIT_STACK, &rlimit) } == -1 {
         Err(FFIError::SetRLimitError(last_error_string()))

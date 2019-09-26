@@ -18,7 +18,7 @@ pub enum RunInfoResult<T> {
 impl<T> RunInfoResult<T> {
     pub fn is_success(&self) -> bool {
         match *self {
-            RunInfoResult::Success(_) => true,
+            Self::Success(_) => true,
             _ => false,
         }
     }
@@ -28,20 +28,18 @@ impl<T> RunInfoResult<T> {
         cb: F,
     ) -> Result<RunInfoResult<A>, B> {
         Ok(match self {
-            RunInfoResult::Success(obj) => RunInfoResult::Success(cb(obj)?),
-            RunInfoResult::NonZeroExitStatus(exit_status) => {
-                RunInfoResult::NonZeroExitStatus(exit_status)
-            }
-            RunInfoResult::KilledBySignal(signal) => RunInfoResult::KilledBySignal(signal),
-            RunInfoResult::MemoryLimitExceeded => RunInfoResult::MemoryLimitExceeded,
-            RunInfoResult::TimeLimitExceeded => RunInfoResult::TimeLimitExceeded,
-            RunInfoResult::WallTimeLimitExceeded => RunInfoResult::WallTimeLimitExceeded,
+            Self::Success(obj) => RunInfoResult::Success(cb(obj)?),
+            Self::NonZeroExitStatus(exit_status) => RunInfoResult::NonZeroExitStatus(exit_status),
+            Self::KilledBySignal(signal) => RunInfoResult::KilledBySignal(signal),
+            Self::MemoryLimitExceeded => RunInfoResult::MemoryLimitExceeded,
+            Self::TimeLimitExceeded => RunInfoResult::TimeLimitExceeded,
+            Self::WallTimeLimitExceeded => RunInfoResult::WallTimeLimitExceeded,
         })
     }
 
     pub fn success(self) -> Option<T> {
         match self {
-            RunInfoResult::Success(obj) => Some(obj),
+            Self::Success(obj) => Some(obj),
             _ => None,
         }
     }
@@ -50,14 +48,14 @@ impl<T> RunInfoResult<T> {
 impl<T> Display for RunInfoResult<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            RunInfoResult::Success(_) => write!(f, "Success"),
-            RunInfoResult::NonZeroExitStatus(ref exit_code) => {
+            Self::Success(_) => write!(f, "Success"),
+            Self::NonZeroExitStatus(ref exit_code) => {
                 write!(f, "Non zero exit status: {}", exit_code)
             }
-            RunInfoResult::KilledBySignal(ref signal) => write!(f, "Killed by Signal {}", signal),
-            RunInfoResult::MemoryLimitExceeded => write!(f, "Memory limit exceeded"),
-            RunInfoResult::TimeLimitExceeded => write!(f, "Time limit exceeded"),
-            RunInfoResult::WallTimeLimitExceeded => write!(f, "Wall time limit exceeded"),
+            Self::KilledBySignal(ref signal) => write!(f, "Killed by Signal {}", signal),
+            Self::MemoryLimitExceeded => write!(f, "Memory limit exceeded"),
+            Self::TimeLimitExceeded => write!(f, "Time limit exceeded"),
+            Self::WallTimeLimitExceeded => write!(f, "Wall time limit exceeded"),
         }
     }
 }

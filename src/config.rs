@@ -11,7 +11,7 @@ pub enum ShareNet {
 
 impl Default for ShareNet {
     fn default() -> Self {
-        ShareNet::Unshare
+        Self::Unshare
     }
 }
 
@@ -23,7 +23,7 @@ pub enum SwapRedirects {
 
 impl Default for SwapRedirects {
     fn default() -> Self {
-        SwapRedirects::No
+        Self::No
     }
 }
 
@@ -35,7 +35,7 @@ pub enum ClearUsage {
 
 impl Default for ClearUsage {
     fn default() -> Self {
-        ClearUsage::Yes
+        Self::Yes
     }
 }
 
@@ -47,7 +47,7 @@ pub enum Interactive {
 
 impl Default for Interactive {
     fn default() -> Self {
-        Interactive::No
+        Self::No
     }
 }
 
@@ -281,7 +281,7 @@ pub enum Environment {
 
 impl Default for Environment {
     fn default() -> Self {
-        Environment::EnvList(Vec::new())
+        Self::EnvList(Vec::new())
     }
 }
 
