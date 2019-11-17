@@ -245,26 +245,30 @@ pub(crate) fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
     );
     let is_dir = mount.source().is_dir();
     if is_dir {
-        fs::create_dir_all(&inner_path).map_err(|error| FFIError::CreateDirError {
-            path: inner_path.to_path_buf(),
-            error: error.description().into(),
-        }).unwrap_or(());
+        fs::create_dir_all(&inner_path)
+            .map_err(|error| FFIError::CreateDirError {
+                path: inner_path.to_path_buf(),
+                error: error.description().into(),
+            })
+            .unwrap_or(());
     } else {
-        inner_path.parent()
-                  .map(|pardir| fs::create_dir_all(pardir)
-                                  .map_err(|error| FFIError::CreateDirError {
-                                        path: inner_path.to_path_buf(),
-                                        error: error.description().into(),
-                                    }))
-                  .unwrap_or(Ok(()))?;
+        inner_path
+            .parent()
+            .map(|pardir| {
+                fs::create_dir_all(pardir).map_err(|error| FFIError::CreateDirError {
+                    path: inner_path.to_path_buf(),
+                    error: error.description().into(),
+                })
+            })
+            .unwrap_or(Ok(()))?;
         let _ = OpenOptions::new()
-                   .create(true)
-                   .append(true)
-                   .open(&inner_path)
-                  .map_err(|error| FFIError::CreateDirError {
-                        path: inner_path.to_path_buf(),
-                        error: error.description().into(),
-                    })?;
+            .create(true)
+            .append(true)
+            .open(&inner_path)
+            .map_err(|error| FFIError::CreateDirError {
+                path: inner_path.to_path_buf(),
+                error: error.description().into(),
+            })?;
     }
 
     let source_c_string = os_str_to_c_string(mount.source());
