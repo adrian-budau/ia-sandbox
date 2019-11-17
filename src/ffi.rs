@@ -236,23 +236,42 @@ pub(crate) fn remount_private() -> Result<()> {
 }
 
 pub(crate) fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
-    // first create the folder (if it does not exist)
+    // first create the folder or file (if it does not exist)
     let inner_path = new_root.join(
         mount
             .destination()
             .strip_prefix("/")
             .unwrap_or_else(|_| mount.destination()),
     );
-    fs::create_dir_all(&inner_path).map_err(|error| FFIError::CreateDirError {
-        path: inner_path.to_path_buf(),
-        error: error.description().into(),
-    })?;
+    let is_dir = mount.source().is_dir();
+    if is_dir {
+        fs::create_dir_all(&inner_path).map_err(|error| FFIError::CreateDirError {
+            path: inner_path.to_path_buf(),
+            error: error.description().into(),
+        }).unwrap_or(());
+    } else {
+        inner_path.parent()
+                  .map(|pardir| fs::create_dir_all(pardir)
+                                  .map_err(|error| FFIError::CreateDirError {
+                                        path: inner_path.to_path_buf(),
+                                        error: error.description().into(),
+                                    }))
+                  .unwrap_or(Ok(()))?;
+        let _ = OpenOptions::new()
+                   .create(true)
+                   .append(true)
+                   .open(&inner_path)
+                  .map_err(|error| FFIError::CreateDirError {
+                        path: inner_path.to_path_buf(),
+                        error: error.description().into(),
+                    })?;
+    }
 
     let source_c_string = os_str_to_c_string(mount.source());
     let destination_c_string = os_str_to_c_string(&inner_path);
 
     let mount_options = mount.mount_options();
-    let mut mount_flags = libc::MS_BIND | libc::MS_NOSUID;
+    let mut mount_flags = libc::MS_BIND | libc::MS_NOSUID | libc::MS_REC;
     if mount_options.read_only() {
         mount_flags |= libc::MS_RDONLY;
     }
