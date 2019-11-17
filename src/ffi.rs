@@ -254,13 +254,12 @@ pub(crate) fn mount_inside(new_root: &Path, mount: &Mount) -> Result<()> {
     } else {
         inner_path
             .parent()
-            .map(|pardir| {
+            .map_or(Ok(()), |pardir| {
                 fs::create_dir_all(pardir).map_err(|error| FFIError::CreateDirError {
                     path: inner_path.to_path_buf(),
                     error: error.description().into(),
                 })
-            })
-            .unwrap_or(Ok(()))?;
+            })?;
         let _ = OpenOptions::new()
             .create(true)
             .append(true)
